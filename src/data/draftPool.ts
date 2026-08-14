@@ -3,5 +3,20 @@
 // rollover only changes generated files.
 import poolJson from './draftPool.2026.json';
 import type { DraftPoolFile } from '@/types/draft';
+import { applyCustomRankingsToPool, getSavedCustomRankings } from '@/utils/customRankings';
 
-export const POOL = poolJson as DraftPoolFile;
+const rawPool = poolJson as DraftPoolFile;
+
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    const saved = getSavedCustomRankings();
+    if (saved) {
+      const { updatedPlayers } = applyCustomRankingsToPool(rawPool.players, saved);
+      rawPool.players = updatedPlayers;
+    }
+  } catch (e) {
+    console.error('Failed to load custom rankings from local storage:', e);
+  }
+}
+
+export const POOL = rawPool;

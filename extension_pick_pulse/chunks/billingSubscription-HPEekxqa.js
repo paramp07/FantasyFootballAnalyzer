@@ -1,0 +1,1 @@
+var e=e=>!e.plan.isDefault;export{e as t};

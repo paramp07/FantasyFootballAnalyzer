@@ -1,0 +1,1 @@
+import{o as e,t}from"./react-CZmEMrhH.js";var n=e(t(),1),r=parseInt(n.version,10),i=r>=19||r===0;function a(e){return e?{inert:i?!0:``}:{}}export{a as t};

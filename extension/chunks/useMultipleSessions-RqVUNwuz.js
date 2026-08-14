@@ -1,0 +1,1 @@
+import{G as e}from"./sidepanel-34yG2Zf6.js";var t=t=>{let n=e().client.signedInSessions;return{signedInSessions:n,otherSessions:n.filter(e=>e.user?.id!==t.user?.id)}};export{t};

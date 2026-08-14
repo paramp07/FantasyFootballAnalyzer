@@ -165,6 +165,8 @@ export interface PoolPlayer {
   // From Sleeper's players dump: id unlocks headshots
   // (sleepercdn.com/content/nfl/players/thumb/<id>.jpg).
   sleeperId?: string;
+  // Extracted from ESPN's kona_player_info for live draft sync.
+  espnId?: string;
   // Dynasty consensus rank/tier (whole-roster value). Drives dynasty startup
   // ordering and the rookie-draft pool. Absent without a dynasty snapshot.
   dynastyRank?: number;

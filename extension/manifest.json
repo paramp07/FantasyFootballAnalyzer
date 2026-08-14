@@ -1,26 +1,79 @@
 {
   "manifest_version": 3,
-  "name": "Fantasy Football Analyzer — ESPN Helper",
-  "short_name": "FFA ESPN Helper",
-  "version": "0.1.0",
-  "description": "Skip the DevTools step. Reads your ESPN espn_s2 and SWID cookies and hands them to Fantasy Football Analyzer so you can import private leagues with one click.",
-  "permissions": ["cookies"],
+  "name": "Fantasy Football Analyzer — Helper Extension",
+  "short_name": "FFA Helper",
+  "version": "0.2.0",
+  "description": "Helper extension for Fantasy Football Analyzer. Auto-syncs live sleeper/espn mock and real drafts to your analyzer board.",
+  "permissions": ["cookies", "activeTab", "tabs"],
   "host_permissions": [
     "https://*.espn.com/*",
-    "https://*.go.com/*"
+    "https://*.go.com/*",
+    "https://sleeper.com/*",
+    "wss://gateway.sleeper.com/*",
+    "https://api.pick-pulse.com/*"
   ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
+  "icons": {
+    "16": "icon/16.png",
+    "32": "icon/32.png",
+    "48": "icon/48.png",
+    "96": "icon/96.png",
+    "128": "icon/128.png"
+  },
   "action": {
-    "default_title": "FFA ESPN Helper",
-    "default_popup": "popup.html"
+    "default_title": "FFA Helper",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon/16.png",
+      "32": "icon/32.png",
+      "48": "icon/48.png",
+      "96": "icon/96.png",
+      "128": "icon/128.png"
+    }
   },
   "externally_connectable": {
     "matches": [
       "https://krool.github.io/*",
+      "https://fantasyfootballanalyzer.app/*",
       "http://localhost:*/*"
     ]
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://fantasy.espn.com/football/draft*"],
+      "js": ["content-scripts/espn-hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://fantasy.espn.com/football/draft*"],
+      "js": ["content-scripts/espn.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://sleeper.com/*"],
+      "js": ["content-scripts/sleeper.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "https://fantasyfootballanalyzer.app/*",
+        "https://krool.github.io/*"
+      ],
+      "js": ["content-scripts/relay.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://app.pick-pulse.com/*",
+        "https://*.pick-pulse.com/*"
+      ],
+      "js": ["content-scripts/pick-pulse.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }

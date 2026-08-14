@@ -105,6 +105,36 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
   const sim = useDraftSim(room, { myQueue: queue.ids });
   const yahoo = useYahooValues(room.pool);
   const liveSync = useLiveDraftSync(league, room);
+
+  // Auto-initialize live sync config and start draft room if launched via extension.
+  // Two-phase approach:
+  //   1. On mount, if syncPlatform is present, set draft mode to 'live'.
+  //   2. Once config.mode flips to 'live' and we're still in setup, call start().
+  // A ref prevents infinite re-entry since updateConfig doesn't change phase.
+  const syncPlatform = useMemo(() => {
+    return new URLSearchParams(window.location.search).get('syncPlatform');
+  }, []);
+
+  const autoStartFired = useRef(false);
+
+  useEffect(() => {
+    if (!syncPlatform || autoStartFired.current) return;
+    if (room.phase !== 'setup') return;
+
+    // Phase 1: configure for live mode
+    if (room.config.mode !== 'live') {
+      room.updateConfig({
+        mode: 'live',
+        draftType: league.draftType || 'snake',
+      });
+      return; // Wait for re-render with updated config
+    }
+
+    // Phase 2: config is now 'live', start the draft
+    autoStartFired.current = true;
+    room.start();
+  }, [syncPlatform, room.phase, room.config.mode, room.updateConfig, room.start, league.draftType]);
+
   // Suggested picks + handcuffs highlight inline on the player board.
   const { suggested, handcuffFor } = useSuggestedPicks(
     room,

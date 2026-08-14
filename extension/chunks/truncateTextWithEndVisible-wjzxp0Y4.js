@@ -1,0 +1,1 @@
+function e(e,t=20,n=5){if(!e||e.length<=t)return e;if(t<=n+3)return`...`+e.slice(-n);let r=Array.from(e);if(r.length<=t)return e;let i=t-n-3,a=r.slice(0,i).join(``),o=r.slice(-n).join(``);return a+`...`+o}export{e as t};

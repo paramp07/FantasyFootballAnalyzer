@@ -26,6 +26,7 @@ const AwardsPage = lazy(() => import('@/pages/AwardsPage').then(m => ({ default:
 const PlayerJourneyPage = lazy(() => import('@/pages/PlayerJourneyPage').then(m => ({ default: m.PlayerJourneyPage })));
 import { useLeague } from '@/hooks/useLeague';
 import { useSounds } from '@/hooks/useSounds';
+import { useAutoSyncLoader } from '@/hooks/useAutoSyncLoader';
 import {
   clearTokens,
   getAuthUrl,
@@ -121,6 +122,64 @@ function App() {
   // Yahoo login status for the header control. The OAuth redirect is a full
   // page load, so a fresh mount always reads the latest token state.
   const [yahooConnected, setYahooConnected] = useState(isAuthenticated);
+
+  const handleLoadLeague = useCallback(async (credentials: LeagueCredentials, options?: Parameters<typeof load>[1]) => {
+    let loaded = await load(credentials, options);
+    // Stay on the form when the load failed; the error renders there.
+    if (!loaded) return;
+    // A Sleeper league id is pinned to one season, so a saved id keeps
+    // landing on last year even after the league renews. Follow the renewal
+    // so connecting lands on the newest season that exists. Only from last
+    // season: pasting a genuinely old id is a deliberate history visit, and
+    // the year dropdown still reaches every season either way.
+    if (loaded.platform === 'sleeper' && loaded.season === new Date().getFullYear() - 1) {
+      const successor = await findSuccessorLeague(loaded.id, loaded.season);
+      if (successor) {
+        logger.debug('[App] Sleeper league renewed; following to', successor.season);
+        const next = await load({ platform: 'sleeper', leagueId: successor.leagueId }, options);
+        if (next) {
+          loaded = next;
+        } else {
+          // The failed follow clobbered the hook's state (league null, error
+          // set, refresh() aimed at the successor). Reload the original (a
+          // cache hit, so instant) so the user lands on the league that did
+          // load instead of bouncing back to the form.
+          const restored = await load(credentials, options);
+          if (!restored) return;
+          loaded = restored;
+        }
+      }
+    }
+    // Remember the connection (public identifiers only) so the form comes
+    // prefilled next visit. The loaded league's values, not the form's, so a
+    // mistyped id is never saved and a followed renewal saves the newest id.
+    rememberConnection(loaded.platform, loaded.id, loaded.season);
+
+    // Preserve sync platform parameters from the current URL if present,
+    // so the draft room knows to auto-start the live sync connection.
+    const currentParams = new URLSearchParams(window.location.search);
+    const syncPlatform = currentParams.get('syncPlatform');
+    const syncLeagueId = currentParams.get('syncLeagueId');
+    const syncSeason = currentParams.get('syncSeason');
+    const searchStr = (syncPlatform && syncLeagueId)
+      ? `?syncPlatform=${syncPlatform}&syncLeagueId=${syncLeagueId}&syncSeason=${syncSeason || ''}`
+      : '';
+
+    if (syncPlatform || isEmptyPreseason(loaded)) {
+      navigate(`/draft-room${searchStr}`, { state: { justConnected: true }, replace: true });
+    } else {
+      navigate(`/draft${searchStr}`, { replace: true });
+    }
+  }, [load, navigate]);
+
+  // Automatically load the actual league instead of falling back to Guest Mode
+  // if the URL contains sync parameters from the Chrome extension
+  useAutoSyncLoader(!!league && !league.isGuest, async (credentials, options) => {
+    // Only attempt if not already loading
+    if (!isLoading) {
+      await handleLoadLeague(credentials, options);
+    }
+  });
 
   // Reveal the app once mounted. The homepage (and the other prerendered
   // routes) ship static markup that createRoot() discards and rebuilds on mount
@@ -246,49 +305,6 @@ function App() {
       navigate('/', { replace: true });
     }
   }, [location, navigate, load, playError]);
-
-  const handleLoadLeague = async (credentials: LeagueCredentials) => {
-    let loaded = await load(credentials);
-    // Stay on the form when the load failed; the error renders there.
-    if (!loaded) return;
-    // A Sleeper league id is pinned to one season, so a saved id keeps
-    // landing on last year even after the league renews. Follow the renewal
-    // so connecting lands on the newest season that exists. Only from last
-    // season: pasting a genuinely old id is a deliberate history visit, and
-    // the year dropdown still reaches every season either way.
-    if (loaded.platform === 'sleeper' && loaded.season === new Date().getFullYear() - 1) {
-      const successor = await findSuccessorLeague(loaded.id, loaded.season);
-      if (successor) {
-        logger.debug('[App] Sleeper league renewed; following to', successor.season);
-        const next = await load({ platform: 'sleeper', leagueId: successor.leagueId });
-        if (next) {
-          loaded = next;
-        } else {
-          // The failed follow clobbered the hook's state (league null, error
-          // set, refresh() aimed at the successor). Reload the original (a
-          // cache hit, so instant) so the user lands on the league that did
-          // load instead of bouncing back to the form.
-          const restored = await load(credentials);
-          if (!restored) return;
-          loaded = restored;
-        }
-      }
-    }
-    // Remember the connection (public identifiers only) so the form comes
-    // prefilled next visit. The loaded league's values, not the form's, so a
-    // mistyped id is never saved and a followed renewal saves the newest id.
-    rememberConnection(loaded.platform, loaded.id, loaded.season);
-    if (isEmptyPreseason(loaded)) {
-      // A fresh connect landing on the Draft Room's setup form otherwise
-      // gives no sign the connect worked (off-season: no draft data to show
-      // yet). The flag rides in navigation state, not the URL, so it
-      // doesn't survive a manual refresh or reappear on later visits to
-      // /draft-room.
-      navigate('/draft-room', { state: { justConnected: true } });
-    } else {
-      navigate('/draft');
-    }
-  };
 
   // Guest mode: synthesize a league from picked settings (no fetch) and jump
   // straight to the chosen surface. The route guards treat a guest league like
@@ -506,24 +522,38 @@ function App() {
               mode so these URLs work without logging in (and stay crawlable). */}
           <Route
             path="/draft-room"
-            element={league ? (
-              // Key on the league fingerprint so a year switch (Header
-              // YearSelector) or a guest-settings change, which swaps `league`
-              // in place without unmounting this route, remounts the Draft Room
-              // with fresh config. useDraftRoom derives config only on mount, so
-              // without this the board keeps the previous league's teams /
-              // scoring / roster slots. (league.season covers ESPN/Yahoo year
-              // switches that keep the same id; leagueKeyFor uses POOL.season.)
-              <DraftRoomPage
-                key={`${league.platform}:${league.id}:${league.season}:${league.totalTeams}:${league.scoringType}:${league.rosterSlots?.SUPERFLEX ?? 0}`}
-                league={league}
-                justConnected={!!(location.state as { justConnected?: boolean } | null)?.justConnected}
-              />
-            ) : <GuestAutoEnter onEnter={enterGuest} />}
+            element={
+              league ? (
+                // Key on the league fingerprint so a year switch (Header
+                // YearSelector) or a guest-settings change, which swaps `league`
+                // in place without unmounting this route, remounts the Draft Room
+                // with fresh config. useDraftRoom derives config only on mount, so
+                // without this the board keeps the previous league's teams /
+                // scoring / roster slots. (league.season covers ESPN/Yahoo year
+                // switches that keep the same id; leagueKeyFor uses POOL.season.)
+                <DraftRoomPage
+                  key={`${league.platform}:${league.id}:${league.season}:${league.totalTeams}:${league.scoringType}:${league.rosterSlots?.SUPERFLEX ?? 0}`}
+                  league={league}
+                  justConnected={!!(location.state as { justConnected?: boolean } | null)?.justConnected}
+                />
+              ) : new URLSearchParams(location.search).has('syncPlatform') ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}><div className="spinner" /></div>
+              ) : (
+                <GuestAutoEnter onEnter={enterGuest} />
+              )
+            }
           />
           <Route
             path="/rankings"
-            element={league ? <RankingsPage league={league} onUpdateGuest={updateGuest} /> : <GuestAutoEnter onEnter={enterGuest} />}
+            element={
+              league ? (
+                <RankingsPage league={league} onUpdateGuest={updateGuest} />
+              ) : new URLSearchParams(location.search).has('syncPlatform') ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}><div className="spinner" /></div>
+              ) : (
+                <GuestAutoEnter onEnter={enterGuest} />
+              )
+            }
           />
           {/* Where each site's draft market disagrees with the consensus.
               Public like /rankings: needs only the bundled pool. */}

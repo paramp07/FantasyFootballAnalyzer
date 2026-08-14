@@ -1,0 +1,1 @@
+import{E as e}from"./sidepanel-34yG2Zf6.js";import{t}from"./SubscriberType-BsRgzZQS.js";import{t as n}from"./StatementPage-D0QZqedQ.js";var r=()=>e(t.Provider,{value:`organization`,children:e(n,{})});export{r as OrganizationStatementPage};

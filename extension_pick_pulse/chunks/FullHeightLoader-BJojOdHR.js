@@ -1,0 +1,1 @@
+import{E as e}from"./sidepanel-34yG2Zf6.js";import{d as t,k as n}from"./customizables-BQujCQm0.js";import{i as r}from"./Flow-D_CGkIWY.js";var i=()=>e(t,{center:!0,sx:{height:`100%`},children:e(n,{colorScheme:`primary`,size:`lg`,elementDescriptor:r.spinner})});export{i as t};

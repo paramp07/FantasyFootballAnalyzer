@@ -11,3 +11,4 @@ export { NflTeamLabel } from './NflTeamLabel';
 export { PosBadge } from './PosBadge';
 export { TeamLink } from './TeamLink';
 export { LuckIcon } from './LuckIcon';
+export { CustomRankingsModal } from './CustomRankingsModal';

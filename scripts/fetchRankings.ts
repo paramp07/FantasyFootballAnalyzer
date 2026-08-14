@@ -236,6 +236,7 @@ async function fetchEspn(): Promise<void> {
   })) as {
     players: Array<{
       player: {
+        id: number;
         fullName: string;
         defaultPositionId: number;
         proTeamId: number;
@@ -246,6 +247,7 @@ async function fetchEspn(): Promise<void> {
   };
   if (!Array.isArray(json.players)) throw new Error('ESPN payload has no players array');
   const players = json.players.map(({ player: p }) => ({
+    id: p.id,
     name: p.fullName,
     pos: ESPN_POSITION_MAP[p.defaultPositionId] ?? 'UNK',
     team: ESPN_TEAM_MAP[p.proTeamId] ?? 'FA',

@@ -1,6 +1,7 @@
 import { Fragment, useDeferredValue, useMemo, useState } from 'react';
 import { POOL } from '@/data/draftPool';
-import { NflTeamLabel, PosBadge } from '@/components';
+import { NflTeamLabel, PosBadge, CustomRankingsModal } from '@/components';
+import { getSavedCustomRankings, clearCustomRankings, saveCustomRankings, cleanTiers } from '@/utils/customRankings';
 import { injuryAbbrev, injuryTitle } from '@/utils/injury';
 import type { League, Platform } from '@/types';
 import type { PoolPlayer } from '@/types/draft';
@@ -65,7 +66,17 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
   const landingPos = initialPos && POSITIONS.includes(initialPos) ? initialPos : undefined;
   const [query, setQuery] = useState('');
   const [posFilter, setPosFilter] = useState(landingPos ?? 'ALL');
-  const [sortBy, setSortBy] = useState<SortKey>('avg');
+  const [sortBy, setSortBy] = useState<SortKey>(() => {
+    return getSavedCustomRankings() ? 'rank' : 'avg';
+  });
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const [players, setPlayers] = useState(() => POOL.players);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [draggableTier, setDraggableTier] = useState<{ tier: number; startIndex: number } | null>(null);
+
+  const isDragEnabled = sortBy === 'rank' && posFilter === 'ALL' && query.trim() === '';
+
   const [sortRev, setSortRev] = useState(false);
   const { playFilter, playSort } = useSounds();
   const { starred, avoided, cycle } = useTargets(POOL.season);
@@ -73,6 +84,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
   const isAuction = league.draftType === 'auction';
   const [viewTab, setViewTab] = useState<ViewTab>(isAuction ? 'auction' : 'snake');
   const auctionView = viewTab === 'auction';
+  const colSpanCount = (auctionView ? 11 : 10) + (isDragEnabled ? 1 : 0);
   const scoring = league.scoringType;
   // Superflex leagues read Sleeper's 2QB ADP market (QBs go far earlier), so
   // the board's ADP column, sort, and delta match the mock AI's behavior.
@@ -123,6 +135,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
   }, [league]);
 
   const scaledValues = useMemo(
+<<<<<<< Updated upstream
     () =>
       draftValues(
         POOL.players,
@@ -132,13 +145,17 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
         vorConfigFor({ tePremium: (league.tePremiumPerReception ?? 0) > 0 }),
       ),
     [valueLeague, league.tePremiumPerReception],
+=======
+    () => draftValues(players, POOL.baseline, valueLeague),
+    [players, valueLeague],
+>>>>>>> Stashed changes
   );
 
   const avgById = useMemo(() => {
     const map = new Map<string, number>();
-    for (const p of POOL.players) map.set(p.id, consensusAvg(p, scoring, superflex));
+    for (const p of players) map.set(p.id, consensusAvg(p, scoring, superflex));
     return map;
-  }, [scoring, superflex]);
+  }, [players, scoring, superflex]);
 
   const setSort = (key: SortKey) => {
     playSort();
@@ -162,11 +179,166 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
     }
   };
 
+  const handleSaveCurrent = () => {
+    // Sort all players in POOL.players based on current sortBy and sortRev settings
+    const sorted = [...POOL.players];
+    const avg = (p: PoolPlayer) => avgById.get(p.id) ?? p.overallRank;
+    const stat = (p: PoolPlayer): number | undefined => {
+      switch (sortBy) {
+        case 'avg':
+          return avg(p);
+        case 'delta':
+          return platformDelta(p, source, scoring, superflex);
+        case 'rank':
+          return superflex ? (p.overallRankSF ?? p.overallRank) : p.overallRank;
+        case 'espnAdp':
+          return p.espnAdp;
+        case 'sleeperAdp':
+          return sleeperAdpFor(p, scoring, superflex);
+        case 'fpValue':
+          return scaledValues.get(p.id) ?? 1;
+        case 'espnValue':
+          return p.espnValue;
+        case 'yahooValue':
+          return yahoo.costs?.get(p.id);
+      }
+    };
+    const dir = (DESC_FIRST.includes(sortBy) ? -1 : 1) * (sortRev ? -1 : 1);
+    
+    sorted.sort((a, b) => {
+      const sa = stat(a);
+      const sb = stat(b);
+      if (sa === undefined || sb === undefined) {
+        if (sa === sb) return a.overallRank - b.overallRank;
+        return sa === undefined ? 1 : -1;
+      }
+      return dir * (sa - sb) || a.overallRank - b.overallRank;
+    });
+
+    // Enforce tier monotonicity before saving
+    const cleaned = cleanTiers(sorted);
+
+    const customRankings = cleaned.map((p, index) => ({
+      name: p.name,
+      rank: index + 1,
+      pos: p.pos,
+      id: p.id,
+      tier: p.tier,
+    }));
+
+    saveCustomRankings(customRankings);
+    setPlayers(cleaned);
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (e: React.DragEvent, hoveredIndex: number) => {
+    e.preventDefault();
+    if (draggableTier) {
+      // Tier boundary is being dragged, allow drop on player rows
+      return;
+    }
+    if (draggedIndex === null || draggedIndex === hoveredIndex) return;
+
+    // Swap items in state array
+    const result = [...players];
+    const targetTier = hoveredIndex < result.length 
+      ? result[hoveredIndex].tier 
+      : result[result.length - 1]?.tier ?? 1;
+
+    const [removed] = result.splice(draggedIndex, 1);
+    const updatedPlayer = { ...removed, tier: targetTier };
+    result.splice(hoveredIndex, 0, updatedPlayer);
+
+    // Update overallRank
+    const updated = result.map((p, index) => {
+      const newRank = index + 1;
+      return {
+        ...p,
+        overallRank: newRank,
+        overallRankSF: newRank,
+      };
+    });
+
+    // Recalculate posRank
+    const playersByPos = new Map<string, PoolPlayer[]>();
+    updated.forEach(p => {
+      const list = playersByPos.get(p.pos) || [];
+      list.push(p);
+      playersByPos.set(p.pos, list);
+    });
+
+    playersByPos.forEach((list) => {
+      list.sort((a, b) => a.overallRank - b.overallRank);
+      list.forEach((p, idx) => {
+        p.posRank = idx + 1;
+      });
+    });
+
+    setPlayers(updated);
+    setDraggedIndex(hoveredIndex);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    
+    // Clean tiers to fix any drag discrepancies
+    const cleaned = cleanTiers(players);
+    setPlayers(cleaned);
+
+    // Save to local storage
+    const customRankings = cleaned.map((p, index) => ({
+      name: p.name,
+      rank: index + 1,
+      pos: p.pos,
+      id: p.id,
+      tier: p.tier,
+    }));
+    saveCustomRankings(customRankings);
+  };
+
+  const handleDrop = (e: React.DragEvent, hoveredIndex: number) => {
+    if (draggableTier) {
+      e.preventDefault();
+      const oldIndex = draggableTier.startIndex;
+      const newIndex = hoveredIndex;
+      const K = draggableTier.tier;
+
+      const updated = [...players];
+      if (newIndex < oldIndex) {
+        for (let idx = newIndex; idx < oldIndex; idx++) {
+          updated[idx] = { ...updated[idx], tier: K };
+        }
+      } else if (newIndex > oldIndex) {
+        for (let idx = oldIndex; idx < newIndex; idx++) {
+          updated[idx] = { ...updated[idx], tier: K - 1 };
+        }
+      }
+
+      const cleaned = cleanTiers(updated);
+      setPlayers(cleaned);
+
+      const customRankings = cleaned.map((p, index) => ({
+        name: p.name,
+        rank: index + 1,
+        pos: p.pos,
+        id: p.id,
+        tier: p.tier,
+      }));
+      saveCustomRankings(customRankings);
+      setDraggableTier(null);
+    }
+  };
+
   const deferredQuery = useDeferredValue(query);
 
   const rows = useMemo(() => {
     const q = normalizeName(deferredQuery);
-    const filtered = POOL.players
+    const filtered = players
       .filter(p =>
         posFilter === 'ALL' ||
         (posFilter === 'FLEX' ? FLEX_POSITIONS.has(p.pos) : p.pos === posFilter),
@@ -206,7 +378,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
       return dir * (sa - sb) || a.overallRank - b.overallRank;
     });
     return filtered;
-  }, [deferredQuery, posFilter, sortBy, sortRev, avgById, scaledValues, source, scoring, superflex, yahoo.costs]);
+  }, [players, deferredQuery, posFilter, sortBy, sortRev, avgById, scaledValues, source, scoring, superflex, yahoo.costs]);
 
   const visible = rows.slice(0, MAX_ROWS);
 
@@ -309,6 +481,34 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
               <span className={styles.settingsItem}>{league.scoringType.replace('_', ' ')}</span>
             </>
           )}
+
+          <button
+            type="button"
+            className={styles.settingsSelect}
+            style={{ cursor: 'pointer', padding: '0.3rem 0.6rem' }}
+            onClick={() => setModalOpen(true)}
+            title="Upload or paste custom player rankings"
+          >
+            ⚙ Custom Rankings
+          </button>
+          <button
+            type="button"
+            className={styles.settingsSelect}
+            style={{ cursor: 'pointer', padding: '0.3rem 0.6rem', marginLeft: '0.5rem' }}
+            onClick={handleSaveCurrent}
+            title="Save the current board order as your custom rankings"
+          >
+            💾 Save Current
+          </button>
+          {!isDragEnabled && (
+            <span
+              className={styles.settingsDim}
+              style={{ marginLeft: '1rem', color: 'var(--lime)', border: '1px dashed var(--lime)', padding: '0.2rem 0.5rem' }}
+              title="Sort by FP RK and clear query/filters to enable manual drag and drop reordering"
+            >
+              💡 Sort by FP RK to drag & reorder
+            </span>
+          )}
           <span className={styles.settingsSpacer} />
           <span
             className={styles.settingsDim}
@@ -316,6 +516,19 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
           >
             Updated {updated.toLocaleDateString()}
           </span>
+          <button
+            type="button"
+            className={styles.resetButton}
+            onClick={() => {
+              if (window.confirm("Are you sure you want to clear your custom rankings and revert to the site's default rankings?")) {
+                clearCustomRankings();
+                window.location.reload();
+              }
+            }}
+            title="Revert back to default rankings and discard custom rankings"
+          >
+            Reset
+          </button>
         </div>
 
         <div className={styles.tabs}>
@@ -386,6 +599,13 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
           <table className={styles.table}>
             <thead>
               <tr>
+                {isDragEnabled && (
+                  <th
+                    className={styles.dragHead}
+                    aria-label="Drag to reorder"
+                    title="Drag handles are active because you are sorted by FP RK, with no queries or filters active."
+                  />
+                )}
                 <th
                   className={styles.starCell}
                   aria-label="Target list"
@@ -415,12 +635,16 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                     ? 'FantasyPros superflex (2QB) consensus rank'
                     : 'FantasyPros expert consensus rank',
                 )}
+<<<<<<< Updated upstream
                 <th
                   className={`${styles.num} ${styles.tierCol}`}
                   title="FantasyPros tier: players in the same tier are seen as close in value, so the breaks between tiers matter more than rank order within one"
                 >
                   Tier
                 </th>
+=======
+
+>>>>>>> Stashed changes
                 <th title="Position, with the player's rank at that position">Pos</th>
                 <th title="NFL team">Team</th>
                 <th
@@ -478,11 +702,40 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                 return (
                   <Fragment key={p.id}>
                   {showTierBreak && (
-                    <tr className={styles.tierBreakRow} aria-hidden="true">
-                      <td colSpan={auctionView ? 12 : 11}>TIER {p.tier}</td>
+                    <tr className={styles.tierBreakRow}>
+                      <td colSpan={colSpanCount}>
+                        <span
+                          className={`${styles.tierBreakText} ${
+                            draggableTier?.tier === p.tier ? styles.tierDraggableOn : ''
+                          }`}
+                          draggable={isDragEnabled}
+                          onDragStart={(e) => {
+                            setDraggableTier({ tier: p.tier, startIndex: i });
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', `tier:${p.tier}:${i}`);
+                          }}
+                          onDragEnd={() => {
+                            setDraggableTier(null);
+                          }}
+                        >
+                          TIER {p.tier}
+                        </span>
+                      </td>
                     </tr>
                   )}
-                  <tr className={styles.row}>
+                  <tr
+                    className={`${styles.row} ${draggedIndex === i ? styles.draggedRow : ''}`}
+                    draggable={isDragEnabled}
+                    onDragStart={(e) => handleDragStart(e, i)}
+                    onDragOver={(e) => handleDragOver(e, i)}
+                    onDragEnd={handleDragEnd}
+                    onDrop={(e) => handleDrop(e, i)}
+                  >
+                    {isDragEnabled && (
+                      <td className={styles.dragCell} title="Drag up/down to change rank">
+                        ⋮⋮
+                      </td>
+                    )}
                     <td className={styles.starCell}>
                       <button
                         type="button"
@@ -528,7 +781,11 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                       {delta === undefined ? '-' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`}
                     </td>
                     <td className={`${styles.num} ${styles.dim}`}>{fpRank}</td>
+<<<<<<< Updated upstream
                     <td className={`${styles.num} ${styles.dim} ${styles.tierCol}`}>{p.tier}</td>
+=======
+
+>>>>>>> Stashed changes
                     <td>
                       <PosBadge pos={p.pos} posRank={p.posRank} />
                     </td>
@@ -561,7 +818,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
               })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={auctionView ? 12 : 11} className={styles.emptyRow}>
+                  <td colSpan={colSpanCount} className={styles.emptyRow}>
                     No players match.
                   </td>
                 </tr>
@@ -575,6 +832,15 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
           )}
         </div>
       </div>
+      {modalOpen && (
+        <CustomRankingsModal
+          onClose={() => setModalOpen(false)}
+          onApply={() => {
+            setModalOpen(false);
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,1 @@
+import{o as e}from"./react-CZmEMrhH.js";import{Xt as t}from"./sidepanel-34yG2Zf6.js";var n=e(t(),1).createRoot;export{n as createRoot};

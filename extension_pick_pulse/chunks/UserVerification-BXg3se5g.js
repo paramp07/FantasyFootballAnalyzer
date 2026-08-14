@@ -1,0 +1,1 @@
+import{o as e,t}from"./react-CZmEMrhH.js";var n=e(t(),1),r=(0,n.createContext)(null),i=()=>{let e=(0,n.useContext)(r);if(!e||e.componentName!==`UserVerification`)throw Error(`Clerk: useUserVerificationContext called outside of the mounted UserVerification component.`);let{componentName:t,...i}=e;return{...i,componentName:t}};export{i as n,r as t};

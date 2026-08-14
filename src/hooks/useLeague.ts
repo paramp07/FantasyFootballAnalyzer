@@ -51,6 +51,7 @@ interface LoadOptions {
   // the notice it sets isn't cleared by the top-of-loadImpl reset meant for
   // fresh, externally-triggered loads.
   isFallbackRetry?: boolean;
+  skipHistory?: boolean;
 }
 
 interface UseLeagueReturn {
@@ -164,7 +165,7 @@ export function useLeague(): UseLeagueReturn {
           logger.debug('[useLeague] Progress:', prog);
           setProgress(prog);
         }
-      });
+      }, options?.skipHistory);
 
       // Only update state if this is still the current request and component is mounted
       if (isMountedRef.current && requestId === currentRequestRef.current) {

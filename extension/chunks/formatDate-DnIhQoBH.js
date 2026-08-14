@@ -1,0 +1,1 @@
+function e(e,t=`long`,n=`en-US`){let r={month:t===`short`?`short`:`long`,...t!==`monthyear`&&{day:`numeric`},...t!==`short`&&{year:`numeric`}};return new Intl.DateTimeFormat(n,r).format(e)}export{e as t};

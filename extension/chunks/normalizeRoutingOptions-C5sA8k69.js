@@ -1,0 +1,1 @@
+import{St as e}from"./sidepanel-34yG2Zf6.js";var t=({routing:t,path:n})=>n&&!t?{routing:`path`,path:n}:t!==`path`&&n?e(t):{routing:t,path:n};export{t};

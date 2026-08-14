@@ -1,0 +1,1 @@
+import{E as e}from"./sidepanel-34yG2Zf6.js";import{t}from"./UserPreview-Dl4wS0s3.js";var n=n=>e(t,{elementId:`personalWorkspace`,rounded:!1,...n});export{n as t};

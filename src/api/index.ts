@@ -11,7 +11,8 @@ export interface ProgressCallback {
 
 export async function loadLeague(
   credentials: LeagueCredentials,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  skipHistory?: boolean
 ): Promise<League> {
   logger.debug('[loadLeague] Called with:', {
     platform: credentials.platform,
@@ -19,13 +20,14 @@ export async function loadLeague(
     season: credentials.season,
     hasEspnS2: !!credentials.espnS2,
     hasSwid: !!credentials.swid,
+    skipHistory,
   });
 
   let league: League;
   switch (credentials.platform) {
     case 'sleeper':
       onProgress?.({ stage: 'Loading league data', current: 0, total: 1 });
-      league = await sleeper.loadLeague(credentials.leagueId);
+      league = await sleeper.loadLeague(credentials.leagueId, skipHistory);
       break;
 
     case 'espn':
@@ -36,6 +38,7 @@ export async function loadLeague(
         {
           espnS2: credentials.espnS2,
           swid: credentials.swid,
+          skipHistory,
         },
         onProgress
       );

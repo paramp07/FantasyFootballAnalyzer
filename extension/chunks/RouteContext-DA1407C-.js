@@ -1,0 +1,1 @@
+import{o as e,t}from"./react-CZmEMrhH.js";var n=e(t(),1),r=n.createContext(null);r.displayName=`RouteContext`;var i=()=>{let e=n.useContext(r);if(!e)throw Error(`useRouter called while Router is null`);return e};export{i as n,r as t};
