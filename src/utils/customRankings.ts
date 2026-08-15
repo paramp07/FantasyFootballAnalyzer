@@ -26,12 +26,12 @@ function parseAbbreviatedName(name: string): { firstInitial: string; lastName: s
   return null;
 }
 
-export const TEMPLATE_RANKINGS_CSV = `Overall,Player,Position,Team,Bye,Tier,Pos Rank,ADP
-1,Ja'Marr Chase,WR,CIN,10,1,1,1.2
-2,Bijan Robinson,RB,ATL,5,1,1,2.1
-3,Josh Allen,QB,BUF,7,1,1,18.4
-4,Sam LaPorta,TE,DET,5,2,1,25.6
-5,Saquon Barkley,RB,PHI,5,1,2,5.1`;
+export const TEMPLATE_RANKINGS_CSV = `Overall,Player,Position,Team,Bye,Tier,Pos Rank,ADP,Pos Tier
+1,Ja'Marr Chase,WR,CIN,10,1,1,1.2,1
+2,Bijan Robinson,RB,ATL,5,1,1,2.1,1
+3,Josh Allen,QB,BUF,7,1,1,18.4,1
+4,Sam LaPorta,TE,DET,5,2,1,25.6,1
+5,Saquon Barkley,RB,PHI,5,1,2,5.1,1`;
 
 function parseCSVLine(text: string): string[] {
   const result: string[] = [];
@@ -87,6 +87,14 @@ export function validateCustomRankings(csvString: string): {
     const tierIdx = headers.findIndex(h => /^tier$/i.test(h));
     const idIdx = headers.findIndex(h => /^id$/i.test(h));
     const teamIdx = headers.findIndex(h => /^team$/i.test(h));
+
+    const posTierIdxs: Record<string, number> = {};
+    const posKeys = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+    posKeys.forEach(pos => {
+      const idx = headers.findIndex(h => new RegExp(`^${pos}\\s*tier$`, 'i').test(h));
+      if (idx !== -1) posTierIdxs[pos] = idx;
+    });
+    const genericPosTierIdx = headers.findIndex(h => /^(pos|position)\s*tier$/i.test(h));
 
     if (rankIdx === -1 || nameIdx === -1) {
       return {
@@ -144,6 +152,29 @@ export function validateCustomRankings(csvString: string): {
       // Optional ID
       if (idIdx !== -1 && cells[idIdx]) {
         rankingItem.id = cells[idIdx].trim();
+      }
+
+      // Optional position-specific tiers
+      const posTiers: Record<string, number> = {};
+      Object.entries(posTierIdxs).forEach(([pos, idx]) => {
+        if (cells[idx]) {
+          const val = parseInt(cells[idx].trim(), 10);
+          if (!isNaN(val) && val >= 0) {
+            posTiers[pos] = val;
+          }
+        }
+      });
+      if (genericPosTierIdx !== -1 && cells[genericPosTierIdx]) {
+        const val = parseInt(cells[genericPosTierIdx].trim(), 10);
+        if (!isNaN(val) && val >= 0) {
+          const playerPos = rankingItem.pos || '';
+          if (playerPos) {
+            posTiers[playerPos] = val;
+          }
+        }
+      }
+      if (Object.keys(posTiers).length > 0) {
+        rankingItem.posTiers = posTiers;
       }
 
       // Optional Tier

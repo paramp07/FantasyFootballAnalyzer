@@ -9,18 +9,30 @@ import {
 
 describe('validateCustomRankings', () => {
   it('should validate correct CSV rankings', () => {
-    const validCsv = `Overall,Player,Position,Team,Bye,Tier,Pos Rank,ADP
-1,Ja'Marr Chase,WR,CIN,10,1,1,1.2
-2,Bijan Robinson,RB,ATL,5,1,1,2.1
-3,Josh Allen,QB,BUF,7,1,1,18.4
-4,Sam LaPorta,TE,DET,5,2,1,25.6
-5,Saquon Barkley,RB,PHI,5,1,2,5.1`;
+    const validCsv = `Overall,Player,Position,Team,Bye,Tier,Pos Rank,ADP,Pos Tier
+1,Ja'Marr Chase,WR,CIN,10,1,1,1.2,1
+2,Bijan Robinson,RB,ATL,5,1,1,2.1,1
+3,Josh Allen,QB,BUF,7,1,1,18.4,1
+4,Sam LaPorta,TE,DET,5,2,1,25.6,2
+5,Saquon Barkley,RB,PHI,5,1,2,5.1,1`;
     const res = validateCustomRankings(validCsv);
     expect(res.valid).toBe(true);
     expect(res.errors).toHaveLength(0);
     expect(res.rankings).toHaveLength(5);
-    expect(res.rankings![0]).toEqual({ name: "Ja'Marr Chase", rank: 1, pos: 'WR', tier: 1, team: 'CIN' });
-    expect(res.rankings![2]).toEqual({ name: 'Josh Allen', rank: 3, pos: 'QB', tier: 1, team: 'BUF' });
+    expect(res.rankings![0]).toEqual({ name: "Ja'Marr Chase", rank: 1, pos: 'WR', tier: 1, team: 'CIN', posTiers: { WR: 1 } });
+    expect(res.rankings![2]).toEqual({ name: 'Josh Allen', rank: 3, pos: 'QB', tier: 1, team: 'BUF', posTiers: { QB: 1 } });
+  });
+
+  it('should parse specific position tier columns', () => {
+    const csv = `Overall,Player,Position,RB Tier,WR Tier,QB Tier
+1,Bijan Robinson,RB,1,,
+2,Ja'Marr Chase,WR,,2,
+3,Josh Allen,QB,,,3`;
+    const res = validateCustomRankings(csv);
+    expect(res.valid).toBe(true);
+    expect(res.rankings![0].posTiers).toEqual({ RB: 1 });
+    expect(res.rankings![1].posTiers).toEqual({ WR: 2 });
+    expect(res.rankings![2].posTiers).toEqual({ QB: 3 });
   });
 
   it('should catch empty strings', () => {
