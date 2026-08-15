@@ -629,4 +629,16 @@
   color: var(--bone);
 }
 
+.contextMenuItem {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--bone);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.contextMenuItem:hover {
+  background: var(--lime);
+  color: var(--ink-1);
+}
+
 

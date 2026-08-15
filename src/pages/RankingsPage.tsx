@@ -1,4 +1,4 @@
-import { Fragment, useDeferredValue, useMemo, useState } from 'react';
+import { Fragment, useDeferredValue, useMemo, useState, useEffect } from 'react';
 import { Pencil, Check, Trash2, Download, X, Save } from 'lucide-react';
 import { POOL, applyActivePreset } from '@/data/draftPool';
 import { NflTeamLabel, PosBadge, CustomRankingsModal } from '@/components';
@@ -101,6 +101,37 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
   const [players, setPlayers] = useState(() => POOL.players);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [draggableTier, setDraggableTier] = useState<{ tier: number; startIndex: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tier: number } | null>(null);
+
+  useEffect(() => {
+    const handleGlobalClick = () => setContextMenu(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
+
+  const handleAddTierAbove = (targetTier: number) => {
+    const updated = players.map(p => {
+      if (p.tier >= targetTier) {
+        return { ...p, tier: p.tier + 1 };
+      }
+      return p;
+    });
+    const cleaned = cleanTiers(updated);
+    setPlayers(cleaned);
+    saveToActivePreset(cleaned);
+  };
+
+  const handleAddTierBelow = (targetTier: number) => {
+    const updated = players.map(p => {
+      if (p.tier > targetTier) {
+        return { ...p, tier: p.tier + 1 };
+      }
+      return p;
+    });
+    const cleaned = cleanTiers(updated);
+    setPlayers(cleaned);
+    saveToActivePreset(cleaned);
+  };
 
   const isDragEnabled = sortBy === 'rank' && posFilter === 'ALL' && query.trim() === '';
 
@@ -162,7 +193,6 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
   }, [league]);
 
   const scaledValues = useMemo(
-<<<<<<< Updated upstream
     () =>
       draftValues(
         players,
@@ -223,11 +253,25 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
       setPresets(updatedPresets);
       applyActivePreset(activePresetId);
     } else {
-      // Creating a new auto preset — reject if it's a duplicate ordering.
+      // Creating a new auto preset — reject if it's a duplicate of any existing preset
       if (isDuplicateRankings(customRankings, presets)) {
         playError();
         return;
       }
+      
+      // Also reject if it is a duplicate of the default Consensus rankings
+      const defaultConsensusOrder = [...POOL.players].sort((a, b) => {
+        const avgA = avgById.get(a.id) ?? a.overallRank;
+        const avgB = avgById.get(b.id) ?? b.overallRank;
+        return avgA - avgB || a.overallRank - b.overallRank;
+      });
+      const consensusIds = defaultConsensusOrder.map(p => p.id).join(',');
+      const newIds = cleanedPlayers.map(p => p.id).join(',');
+      if (consensusIds === newIds) {
+        playError();
+        return;
+      }
+
       const name = nextPresetName(presets);
       const id = 'custom-' + Date.now();
       const newPreset = { id, name, rankings: customRankings, updatedAt: Date.now() };
@@ -560,9 +604,11 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                     boxShadow: '4px 4px 0 var(--bone)',
                     zIndex: 100,
                     width: '100%',
-                    minWidth: '200px',
+                    minWidth: '220px',
+                    maxWidth: '320px',
                     display: 'flex',
                     flexDirection: 'column',
+                    overflow: 'hidden',
                   }}
                 >
                   {/* Default Consensus Option */}
@@ -615,9 +661,12 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                         background: activePresetId === p.id ? 'rgba(214, 255, 46, 0.1)' : 'transparent',
                         borderBottom: '1px solid rgba(255,255,255,0.08)',
                         position: 'relative',
+                        gap: '8px',
                       }}
                     >
-                      <span>{p.name}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+                        {p.name}
+                      </span>
                       <button
                         type="button"
                         className="preset-delete-x"
@@ -968,34 +1017,45 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                 // In superflex the FFA RK column tracks the superflex rank so it
                 // matches the delta and consensus (which use overallRankSF).
                 const ffaRank = superflex ? (p.overallRankSF ?? p.overallRank) : p.overallRank;
-                // Tier separators only when the order follows the tiers
-                // (FFA rank sort); drafting hinges on these breaks.
-                const showTierBreak =
-                  sortBy === 'rank' && i > 0 && p.tier > 0 && visible[i - 1].tier !== p.tier;
+                const prevTier = sortBy === 'rank' ? (i === 0 ? 0 : visible[i - 1].tier) : 0;
+                const tierBreaks: number[] = [];
+                if (sortBy === 'rank' && p.tier > prevTier) {
+                  for (let t = prevTier + 1; t <= p.tier; t++) {
+                    if (t > 0) tierBreaks.push(t);
+                  }
+                }
                 return (
                   <Fragment key={p.id}>
-                  {showTierBreak && (
-                    <tr className={styles.tierBreakRow}>
+                  {tierBreaks.map(t => (
+                    <tr key={`tier-break-${t}`} className={styles.tierBreakRow}>
                       <td colSpan={colSpanCount}>
                         <span
                           className={`${styles.tierBreakText} ${
-                            draggableTier?.tier === p.tier ? styles.tierDraggableOn : ''
+                            draggableTier?.tier === t ? styles.tierDraggableOn : ''
                           }`}
                           draggable={isDragEnabled}
                           onDragStart={(e) => {
-                            setDraggableTier({ tier: p.tier, startIndex: i });
+                            setDraggableTier({ tier: t, startIndex: i });
                             e.dataTransfer.effectAllowed = 'move';
-                            e.dataTransfer.setData('text/plain', `tier:${p.tier}:${i}`);
+                            e.dataTransfer.setData('text/plain', `tier:${t}:${i}`);
                           }}
                           onDragEnd={() => {
                             setDraggableTier(null);
                           }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setContextMenu({
+                              x: e.clientX,
+                              y: e.clientY,
+                              tier: t,
+                            });
+                          }}
                         >
-                          TIER {p.tier}
+                          TIER {t}
                         </span>
                       </td>
                     </tr>
-                  )}
+                  ))}
                   <tr
                     className={`${styles.row} ${draggedIndex === i ? styles.draggedRow : ''}`}
                     draggable={isDragEnabled}
@@ -1111,6 +1171,36 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
             setModalOpen(false);
           }}
         />
+      )}
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            background: 'var(--ink)',
+            border: '2px solid var(--bone)',
+            boxShadow: '4px 4px 0 var(--bone)',
+            zIndex: 1000,
+            padding: '4px 0',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.75rem',
+            minWidth: '150px',
+          }}
+        >
+          <div
+            onClick={() => handleAddTierAbove(contextMenu.tier)}
+            className={styles.contextMenuItem}
+          >
+            Add Tier Above
+          </div>
+          <div
+            onClick={() => handleAddTierBelow(contextMenu.tier)}
+            className={styles.contextMenuItem}
+          >
+            Add Tier Below
+          </div>
+        </div>
       )}
     </div>
   );
