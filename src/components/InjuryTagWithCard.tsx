@@ -50,7 +50,7 @@ export const InjuryTagWithCard: React.FC<InjuryTagWithCardProps> = ({ player, cl
     >
       <span
         className={`${styles.tag} ${isSevere ? styles.tagSevere : ''}`}
-        title={injuryTitle(player)}
+        aria-label={injuryTitle(player)}
       >
         {abbrev}
       </span>
