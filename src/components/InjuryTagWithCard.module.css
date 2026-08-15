@@ -1,0 +1,168 @@
+.container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  background: var(--gold);
+  color: var(--ink);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.tag:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+.tagSevere {
+  background: var(--blood);
+  color: #ffffff;
+}
+
+.card {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.35rem;
+  z-index: 1000;
+  width: 320px;
+  background: var(--ink);
+  border: 2px solid var(--bone-dim);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  cursor: default;
+  box-shadow: 5px 5px 0 0 var(--ink-3);
+  pointer-events: none;
+  animation: fadeIn 0.15s ease-out forwards;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.iconBox {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: var(--ink-2);
+  border: 2px solid var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.iconSvg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.headerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--bone);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.badge {
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 0 var(--ink-3);
+  color: var(--ink);
+}
+
+.divider {
+  border: none;
+  border-top: 2px dashed var(--rule);
+  margin: 0.1rem 0;
+}
+
+.dataRows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dataRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.label {
+  color: var(--bone-dim);
+  text-transform: uppercase;
+}
+
+.value {
+  color: var(--bone);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.notesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.notesLabel {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--bone-dim);
+  text-transform: uppercase;
+}
+
+.notesText {
+  font-family: serif;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--bone-dim);
+  font-style: italic;
+  margin: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

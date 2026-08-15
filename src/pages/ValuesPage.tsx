@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { POOL } from '@/data/draftPool';
 import { NflTeamLabel, PosBadge } from '@/components';
-import { injuryAbbrev, injuryTitle } from '@/utils/injury';
+import { InjuryTagWithCard } from '@/components/InjuryTagWithCard';
 import type { League, Platform } from '@/types';
 import type { PoolPlayer } from '@/types/draft';
 import type { GuestScoring, GuestSettings } from '@/utils/guestLeague';
@@ -410,11 +410,7 @@ export function ValuesPage({ league, onUpdateGuest }: ValuesPageProps) {
                   <td className={styles.player}>
                     <span className={styles.playerName}>{r.player.name}</span>
                     {r.player.rookie && <span className={styles.rookieTag}>R</span>}
-                    {r.player.injuryStatus && (
-                      <span className={styles.injuryTag} title={injuryTitle(r.player)}>
-                        {injuryAbbrev(r.player.injuryStatus)}
-                      </span>
-                    )}
+                    <InjuryTagWithCard player={r.player} />
                   </td>
                   <td><PosBadge pos={r.player.pos} posRank={r.player.posRank} /></td>
                   <td><NflTeamLabel team={r.player.team} /></td>

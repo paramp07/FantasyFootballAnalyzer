@@ -14,7 +14,7 @@ import {
   nextPresetName,
   renamePreset,
 } from '@/utils/customRankings';
-import { injuryAbbrev, injuryTitle } from '@/utils/injury';
+import { InjuryTagWithCard } from '@/components/InjuryTagWithCard';
 import type { League, Platform } from '@/types';
 import type { PoolPlayer } from '@/types/draft';
 import { GUEST_TEAM_OPTIONS, type GuestScoring, type GuestSettings } from '@/utils/guestLeague';
@@ -1203,11 +1203,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                     <td className={styles.player}>
                       <span className={styles.playerName}>{p.name}</span>
                       {p.rookie && <span className={styles.rookieTag} title="Rookie">R</span>}
-                      {p.injuryStatus && (
-                        <span className={styles.injuryTag} title={injuryTitle(p)}>
-                          {injuryAbbrev(p.injuryStatus)}
-                        </span>
-                      )}
+                      <InjuryTagWithCard player={p} />
                     </td>
                     <td className={`${styles.num} ${styles.avg}`}>{avg.toFixed(1)}</td>
                     <td

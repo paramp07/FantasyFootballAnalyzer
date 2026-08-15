@@ -9,7 +9,7 @@ import { marketAdp } from '@/utils/consensus';
 import { inflateValue } from '@/utils/inflation';
 import { normalizeName } from '@/utils/playerNames';
 import { FLEX_POSITIONS } from '@/data/rankingsVariants';
-import { injuryAbbrev, injuryTitle } from '@/utils/injury';
+import { InjuryTagWithCard } from '@/components/InjuryTagWithCard';
 import styles from './AvailablePlayers.module.css';
 
 interface AvailablePlayersProps {
@@ -421,11 +421,7 @@ export function AvailablePlayers({
                     <span className={styles.mName}>
                       <span className={styles.mNameText}>{p.name}</span>
                       {p.rookie && <span className={styles.rookieTag} title="Rookie">R</span>}
-                      {p.injuryStatus && (
-                        <span className={styles.injuryTag} title={injuryTitle(p)}>
-                          {injuryAbbrev(p.injuryStatus)}
-                        </span>
-                      )}
+                      <InjuryTagWithCard player={p} />
                       {p.bye !== null && onTheClockByeWeeks.has(p.bye) && (
                         <span className={styles.byeConflictTag} title={`Bye week conflict: another player on this team has Bye ${p.bye}`}>
                           B
@@ -699,11 +695,7 @@ export function AvailablePlayers({
                 <td className={styles.player}>
                   <span className={styles.playerName}>{p.name}</span>
                   {p.rookie && <span className={styles.rookieTag} title="Rookie">R</span>}
-                  {p.injuryStatus && (
-                    <span className={styles.injuryTag} title={injuryTitle(p)}>
-                      {injuryAbbrev(p.injuryStatus)}
-                    </span>
-                  )}
+                  <InjuryTagWithCard player={p} />
                   {p.bye !== null && onTheClockByeWeeks.has(p.bye) && (
                     <span className={styles.byeConflictTag} title={`Bye week conflict: another player on this team has Bye ${p.bye}`}>
                       B
