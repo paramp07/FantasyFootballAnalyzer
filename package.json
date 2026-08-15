@@ -16,7 +16,7 @@
     "update:rankings": "npm run fetch:rankings && npm run build:draft-data",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview",
+    "preview": "node --import ./vite-polyfill.js ./node_modules/vite/bin/vite.js preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "test": "vitest",

@@ -1,0 +1,1 @@
+import{E as e}from"./sidepanel-34yG2Zf6.js";import{t}from"./Avatar-D7-hFyQL.js";import{r as n,t as r}from"./user-uStbr8jn.js";var i=i=>{let{name:a,firstName:o,lastName:s,avatarUrl:c,imageUrl:l,...u}=i;return e(t,{title:r({name:a,firstName:o,lastName:s}),initials:n({name:a,firstName:o,lastName:s}),imageUrl:c||l,...u})};export{i as t};

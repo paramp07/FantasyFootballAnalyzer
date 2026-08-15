@@ -162,6 +162,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
   }, [league]);
 
   const scaledValues = useMemo(
+<<<<<<< Updated upstream
     () =>
       draftValues(
         players,

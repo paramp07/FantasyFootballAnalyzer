@@ -1,0 +1,1 @@
+import{E as e,ht as t}from"./sidepanel-34yG2Zf6.js";import{n}from"./PreviewButton-D2QVh5vb.js";import{t as r}from"./add-CgqEWtM8.js";var i=i=>{let{icon:a=r,...o}=i,{user:s}=t();return s?.createOrganizationEnabled?e(n,{...o,icon:a}):null};export{i as t};

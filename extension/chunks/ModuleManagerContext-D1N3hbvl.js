@@ -1,0 +1,1 @@
+import{o as e,t}from"./react-CZmEMrhH.js";import{E as n}from"./sidepanel-34yG2Zf6.js";var r=e(t(),1),i=r.createContext(void 0),a=({children:e,moduleManager:t})=>n(i.Provider,{value:t,children:e}),o=()=>{let e=r.useContext(i);if(!e)throw Error(`useModuleManager must be used within a ModuleManagerProvider`);return e};export{o as n,a as t};

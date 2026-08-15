@@ -1,0 +1,1 @@
+import{o as e,t}from"./react-CZmEMrhH.js";var n=e(t(),1),r=(0,n.createContext)(null),i=()=>{let e=(0,n.useContext)(r);if(e===null)throw Error(`Clerk: useOAuthConsentContext called outside of the mounted OAuthConsent component.`);return e};export{i as n,r as t};

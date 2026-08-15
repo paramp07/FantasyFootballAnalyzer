@@ -1,0 +1,1 @@
+import{o as e,t}from"./react-CZmEMrhH.js";import{E as n}from"./sidepanel-34yG2Zf6.js";var r=e(t(),1),i=(0,r.createContext)({acceptedInvitations:[],setAcceptedInvitations:()=>{}});function a({children:e}){let[t,a]=(0,r.useState)([]);return n(i.Provider,{value:{acceptedInvitations:t,setAcceptedInvitations:a},children:e})}function o(){return(0,r.useContext)(i)}export{o as n,a as t};

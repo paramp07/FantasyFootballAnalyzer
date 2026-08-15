@@ -1,0 +1,1 @@
+var e=new Set([`__proto__`,`constructor`,`prototype`]),t=(n,r)=>{if(!(!n||!r))for(let i in n)e.has(i)||(Object.prototype.hasOwnProperty.call(n,i)&&n[i]!==null&&typeof n[i]==`object`?(r[i]===void 0&&(r[i]=new(Object.getPrototypeOf(n[i])).constructor),t(n[i],r[i])):Object.prototype.hasOwnProperty.call(n,i)&&n[i]!==void 0&&(r[i]=n[i]))};export{t};

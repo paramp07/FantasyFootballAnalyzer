@@ -1,0 +1,38 @@
+{
+   "action": {
+      "default_title": "Open Pick Pulse"
+   },
+   "background": {
+      "service_worker": "background.js"
+   },
+   "content_scripts": [ {
+      "js": [ "content-scripts/espn-hook.js" ],
+      "matches": [ "https://fantasy.espn.com/football/draft*" ],
+      "run_at": "document_start",
+      "world": "MAIN"
+   }, {
+      "js": [ "content-scripts/espn.js" ],
+      "matches": [ "https://fantasy.espn.com/football/draft*" ],
+      "run_at": "document_start"
+   }, {
+      "js": [ "content-scripts/sleeper.js" ],
+      "matches": [ "https://sleeper.com/*" ]
+   } ],
+   "host_permissions": [ "https://clerk.pick-pulse.com/*", "https://clerk.pick-pulse.com/*" ],
+   "icons": {
+      "128": "icon/128.png",
+      "16": "icon/16.png",
+      "32": "icon/32.png",
+      "48": "icon/48.png",
+      "96": "icon/96.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjbJlajXfgz/hPw1S9T4iRXfoOlWQEgQredCX8tEot5zyojRwJY32aR6YMA8a/oZu79CU2acK1Hz88GHj48WdqFdKP4z/nP66F1xa5y3iupPQXuZzna/tEkxEqo8eQjK/wdRAsewSqPClKngdGMtANLxKDsKAkn/cM5oqiNTvYlRKGaL3fnEeJOGRhzA+BR648bwlwJA8O/Q+2voEGj5L2YvnNMP9R9XOls7d+TATle4BPGqtYapJ6clHM3s+sMlZxyIjCFwdNG7hlobKJOJCJZwHngzZ3OiJj5OUiT1DEF9Y/W2hMSk8Zk6v+LCtg4DzOrMmwLYNeP77cs65u5+ZLwIDAQAB",
+   "manifest_version": 3,
+   "name": "Pick Pulse",
+   "permissions": [ "sidePanel", "storage", "cookies" ],
+   "side_panel": {
+      "default_path": "sidepanel.html"
+   },
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "4.1.2"
+}

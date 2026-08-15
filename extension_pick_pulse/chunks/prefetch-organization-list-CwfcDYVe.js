@@ -1,0 +1,1 @@
+import{tt as e}from"./sidepanel-34yG2Zf6.js";import{t}from"./utils-B21ywsSJ.js";function n(){return e(t),null}export{n as OrganizationSwitcherPrefetch};

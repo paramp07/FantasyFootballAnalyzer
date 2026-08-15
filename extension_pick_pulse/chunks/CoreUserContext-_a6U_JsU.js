@@ -1,0 +1,1 @@
+import{t as e}from"./react-CZmEMrhH.js";import{E as t,gt as n}from"./sidepanel-34yG2Zf6.js";e();function r(e){let r=r=>n()?t(e,{...r}):null,i=e.displayName||e.name||`Component`;return e.displayName=i,r.displayName=i,r}export{r as t};

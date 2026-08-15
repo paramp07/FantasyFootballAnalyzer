@@ -45,6 +45,7 @@ interface FetchOptions {
   scoringPeriodId?: number;
   fantasyFilter?: object;
   extend?: string;
+  skipHistory?: boolean;
 }
 
 async function fetchESPN<T>(
@@ -70,11 +71,16 @@ async function fetchESPN<T>(
 
     logger.debug('[ESPN] Using proxy for private league:', url);
 
+    let swid = options.swid;
+    if (swid && !swid.startsWith('{')) {
+      swid = `{${swid}}`;
+    }
+
     const headers: Record<string, string> = {
       'Accept': 'application/json',
       // URL-encode to preserve special characters like + / = in headers
       'X-ESPN-S2': encodeURIComponent(options.espnS2),
-      'X-ESPN-SWID': encodeURIComponent(options.swid),
+      'X-ESPN-SWID': encodeURIComponent(swid),
     };
 
     if (options.fantasyFilter) {
@@ -213,6 +219,29 @@ export function parseEspnRosterSlots(
   };
 }
 
+export interface EspnDraftPick {
+  playerId: number;
+  teamId: number;
+  roundId: number;
+  roundPickNumber: number;
+  overallPickNumber: number;
+  keeper?: boolean;
+  bidAmount?: number;
+}
+
+export async function getEspnDraftPicks(
+  leagueId: string,
+  season: number,
+  espnS2: string,
+  swid: string
+): Promise<EspnDraftPick[]> {
+  const options = { espnS2, swid };
+  // ESPN's API often returns a 500 error if mDraftDetail is requested by itself. 
+  // Grouping it with mSettings and mTeam ensures it resolves correctly.
+  const data = await fetchESPN<ESPNAPI.League>(season, leagueId, ['mDraftDetail', 'mSettings', 'mTeam'], options);
+  return data.draftDetail?.picks || [];
+}
+
 export async function loadLeague(
   leagueId: string,
   season: number = new Date().getFullYear(),
@@ -234,11 +263,15 @@ export async function loadLeague(
   // at all — fetching 17 weeks of each (34 proxied calls for private leagues)
   // is pure waste, so skip straight to processing.
   const hasDrafted = leagueData.draftDetail?.drafted !== false;
+<<<<<<< Updated upstream
   // Note: these weekly fetch loops iterate SCORING periods (NFL weeks), which
   // stay weekly even in leagues with 2-week playoff matchup rounds. If
   // playoff-round analysis is ever built, the matchup-period -> scoring-period
   // map is available at settings.scheduleSettings.matchupPeriods.
   const currentWeek = hasDrafted ? Math.max(leagueData.status?.currentMatchupPeriod || 0, 17) : 0;
+=======
+  const currentWeek = options?.skipHistory ? 0 : (hasDrafted ? Math.max(leagueData.status?.currentMatchupPeriod || 0, 17) : 0);
+>>>>>>> Stashed changes
   logger.debug('[ESPN] Current week:', currentWeek, hasDrafted ? '' : '(pre-draft league, skipping weekly fetches)');
 
   // Fetch weekly roster data to track who was STARTED each week

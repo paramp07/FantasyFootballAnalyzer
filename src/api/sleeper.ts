@@ -295,7 +295,7 @@ function draftOrderTeamIds(
 }
 
 // Load complete league data
-export async function loadLeague(leagueId: string): Promise<League> {
+export async function loadLeague(leagueId: string, skipHistory?: boolean): Promise<League> {
   // Fetch all required data in parallel
   const [leagueData, users, rosters, nflState, players] = await Promise.all([
     getLeague(leagueId),
@@ -358,7 +358,7 @@ export async function loadLeague(leagueId: string): Promise<League> {
 
   // Fetch all transactions for the season (always fetch all 18 weeks + playoffs)
   // During offseason, nflState.week might be 0 or 1, so we use max of current week or 18
-  const maxWeek = Math.max(nflState.week || 0, 18);
+  const maxWeek = skipHistory ? 0 : Math.max(nflState.week || 0, 18);
   const transactionPromises: Promise<SleeperAPI.Transaction[]>[] = [];
   for (let week = 1; week <= maxWeek; week++) {
     transactionPromises.push(getTransactions(leagueId, week).catch(() => []));

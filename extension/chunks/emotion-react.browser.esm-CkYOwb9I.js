@@ -1,0 +1,1 @@
+import{t as e}from"./react-CZmEMrhH.js";import{A as t,j as n}from"./sidepanel-34yG2Zf6.js";e(),n();function r(){return t([...arguments])}var i=function(){var e=r.apply(void 0,arguments),t=`animation-`+e.name;return{name:t,styles:`@keyframes `+t+`{`+e.styles+`}`,anim:1,toString:function(){return`_EMO_`+this.name+`_`+this.styles+`_EMO_`}}};export{i as n,r as t};

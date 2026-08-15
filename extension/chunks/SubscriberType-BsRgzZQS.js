@@ -1,0 +1,1 @@
+import{o as e,t}from"./react-CZmEMrhH.js";var n=e(t(),1),r=`user`,i=(0,n.createContext)(r),a=()=>(0,n.useContext)(i)||r,o=()=>a()===`user`?`userProfile`:`organizationProfile`;export{a as n,o as r,i as t};

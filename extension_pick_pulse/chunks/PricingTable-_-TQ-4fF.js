@@ -1,0 +1,1 @@
+import{o as e,t}from"./react-CZmEMrhH.js";var n=e(t(),1),r=(0,n.createContext)(null),i=()=>{let e=(0,n.useContext)(r);if(!e||e.componentName!==`PricingTable`)throw Error(`Clerk: usePricingTableContext called outside PricingTable.`);let{componentName:t,...i}=e;return{...i,componentName:t}};export{i as n,r as t};

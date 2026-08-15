@@ -76,6 +76,8 @@ interface PoolPlayer {
   projPtsStd?: number;
   // From the Sleeper players dump.
   sleeperId?: string;
+  // Extracted from ESPN's kona_player_info for live draft sync.
+  espnId?: string;
   // Dynasty consensus rank/tier (whole-roster value). Absent when the dynasty
   // snapshot is missing or the player isn't dynasty-ranked.
   dynastyRank?: number;
@@ -381,11 +383,12 @@ function joinSource<T extends { name: string; pos: string; team: string }>(
 }
 
 interface EspnRow {
-  name: string; pos: string; team: string;
+  id: number; name: string; pos: string; team: string;
   adp: number | null; auctionValueLive: number | null; auctionValueEditorial: number | null;
 }
 const espnSnapshot = loadRawSnapshot<{ players: EspnRow[] }>(`espn-values.${SEASON}.json`);
 joinSource('ESPN', espnSnapshot?.players, (player, row) => {
+  player.espnId = String(row.id);
   if (row.adp !== null) player.espnAdp = Math.round(row.adp * 10) / 10;
   const value = row.auctionValueLive ?? row.auctionValueEditorial;
   if (value !== null && value > 0) player.espnValue = Math.round(value);

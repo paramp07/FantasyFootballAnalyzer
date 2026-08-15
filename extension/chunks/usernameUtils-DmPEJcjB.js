@@ -1,0 +1,1 @@
+import{a as e}from"./EnvironmentContext-DGY7iXhi.js";var t=`form_username_invalid_length`,n=`form_username_needs_non_number_char`,r=(r,i)=>{let{t:a,usernameSettings:o}=i,s=r[0];return i?s?.code===t?a(e(`unstable__errors.${t}`,{min_length:o.min_length,max_length:o.max_length})):s?.code===n?a(e(`unstable__errors.${n}`)):s:s};export{r as t};

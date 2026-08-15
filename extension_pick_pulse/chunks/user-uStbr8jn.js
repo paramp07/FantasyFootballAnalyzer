@@ -1,0 +1,1 @@
+var e=({firstName:e,lastName:t,name:n})=>n||[e,t].join(` `).trim()||``,t=({firstName:e,lastName:t,name:n})=>[(e||``)[0],(t||``)[0]].join(``).trim()||(n||``)[0],n=e=>e.username?e.username:e.primaryEmailAddress?e.primaryEmailAddress.emailAddress:e.primaryPhoneNumber?e.primaryPhoneNumber.phoneNumber:e.primaryWeb3Wallet?e.primaryWeb3Wallet.web3Wallet:``;export{n,t as r,e as t};
