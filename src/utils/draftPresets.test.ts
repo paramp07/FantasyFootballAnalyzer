@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { DraftRoomConfig } from '@/types/draft';
 import {
   deletePreset,
+  importPresetsFromJSON,
   loadPresets,
   savePreset,
   settingsFromConfig,
@@ -35,8 +36,8 @@ describe('draftPresets', () => {
     expect(s.leagueType).toBe('dynasty');
     expect(s.rosterSlots.SUPERFLEX).toBe(1);
     expect(s.budget).toBe(300);
-    expect('teams' in s).toBe(false);
-    expect('myTeamId' in s).toBe(false);
+    expect('teams' in s).toBe(true);
+    expect('myTeamId' in s).toBe(true);
     expect('leagueKey' in s).toBe(false);
   });
 
@@ -60,4 +61,17 @@ describe('draftPresets', () => {
     savePreset('   ', settingsFromConfig(config));
     expect(loadPresets()).toHaveLength(0);
   });
+
+  it('imports valid JSON presets', () => {
+    const presetObj = {
+      name: 'Imported Dynasty',
+      savedAt: Date.now(),
+      settings: settingsFromConfig(config),
+    };
+    const updated = importPresetsFromJSON(JSON.stringify(presetObj));
+    expect(updated).toHaveLength(1);
+    expect(updated[0].name).toBe('Imported Dynasty');
+    expect(updated[0].settings.scoring).toBe('ppr');
+  });
 });
+

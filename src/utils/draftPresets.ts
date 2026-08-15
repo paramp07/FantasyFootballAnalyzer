@@ -27,6 +27,7 @@ export type PresetSettings = Pick<
   | 'keepersPerTeam'
   | 'keeperEscalation'
   | 'teams'
+  | 'myTeamId'
 >;
 
 export interface DraftPreset {
@@ -48,6 +49,7 @@ const PRESET_KEYS: Array<keyof PresetSettings> = [
   'keepersPerTeam',
   'keeperEscalation',
   'teams',
+  'myTeamId',
 ];
 
 // Pull just the preset-relevant fields out of a full config.
@@ -97,3 +99,66 @@ export function deletePreset(name: string): DraftPreset[] {
   write(next);
   return next;
 }
+
+/**
+ * Downloads a single draft preset as a JSON file.
+ */
+export function exportPresetJSON(preset: DraftPreset): void {
+  const json = JSON.stringify(preset, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${preset.name.replace(/[^a-z0-9]/gi, '_')}_draft_preset.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Downloads all saved draft presets as a JSON file.
+ */
+export function exportAllPresetsJSON(): void {
+  const presets = loadPresets();
+  if (presets.length === 0) return;
+  const json = JSON.stringify(presets, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ffa_draft_presets.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Parses and validates an imported JSON string containing draft preset(s).
+ * Accepts either a single DraftPreset object or an array of DraftPreset objects.
+ */
+export function importPresetsFromJSON(jsonString: string): DraftPreset[] {
+  const parsed = JSON.parse(jsonString);
+  const rawList: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object' && 'presets' in parsed && Array.isArray((parsed as Record<string, unknown>).presets)
+      ? (parsed as Record<string, unknown>).presets as unknown[]
+      : [parsed];
+
+  let currentList = loadPresets();
+
+  for (const item of rawList) {
+    if (
+      item &&
+      typeof item === 'object' &&
+      'name' in item &&
+      typeof (item as Record<string, unknown>).name === 'string' &&
+      'settings' in item &&
+      (item as Record<string, unknown>).settings &&
+      typeof (item as Record<string, unknown>).settings === 'object'
+    ) {
+      const preset = item as DraftPreset;
+      currentList = savePreset(preset.name, preset.settings);
+    }
+  }
+
+  return currentList;
+}
+
