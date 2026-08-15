@@ -1,4 +1,4 @@
-import injuryCsvRaw from '@/data/exampleinjurydata.csv?raw';
+import injuryCsvRaw from '@/data/injurydata.csv?raw';
 import { matchKey } from '@/utils/playerNames';
 
 export interface InjuryDetail {
@@ -52,19 +52,19 @@ export function parseInjuryCSV(csvText: string): InjuryDetail[] {
   if (lines.length <= 1) return [];
 
   const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
-  const sleeperIdIdx = headers.findIndex(h => h.includes('sleeper id') || h === 'id');
-  const nameIdx = headers.findIndex(h => h.includes('player name') || h.includes('name'));
+  const sleeperIdIdx = headers.findIndex(h => h.includes('sleeper id') || h === 'id' || h.includes('sleeper'));
+  const nameIdx = headers.findIndex(h => h === 'player' || h === 'player name' || h.includes('player') || h.includes('name'));
   const posIdx = headers.findIndex(h => h === 'position' || h === 'pos');
   const teamIdx = headers.findIndex(h => h === 'team');
-  const injuryNameIdx = headers.findIndex(h => h.includes('injury name'));
+  const injuryNameIdx = headers.findIndex(h => h.includes('api injury name') || h.includes('html injury note') || h.includes('injury name'));
   const injuryDateIdx = headers.findIndex(h => h.includes('injury date'));
   const surgeryDateIdx = headers.findIndex(h => h.includes('surgery date'));
-  const detailsIdx = headers.findIndex(h => h.includes('additional details'));
-  const recoveryIdx = headers.findIndex(h => h.includes('typical recovery'));
-  const returnIdx = headers.findIndex(h => h.includes('expected return'));
-  const reinjuryIdx = headers.findIndex(h => h.includes('reinjury rate'));
-  const concernIdx = headers.findIndex(h => h.includes('concern level'));
-  const notesIdx = headers.findIndex(h => h.includes('doctor notes'));
+  const detailsIdx = headers.findIndex(h => h.includes('additional details') || h.includes('details'));
+  const recoveryIdx = headers.findIndex(h => h.includes('typical recovery') || h.includes('recovery'));
+  const returnIdx = headers.findIndex(h => h.includes('expected return') || h.includes('return'));
+  const reinjuryIdx = headers.findIndex(h => h.includes('reinjury rate') || h.includes('reinjury'));
+  const concernIdx = headers.findIndex(h => h.includes('concern level') || h.includes('concern'));
+  const notesIdx = headers.findIndex(h => h.includes('doctor notes') || h.includes('notes'));
   const lastChangedIdx = headers.findIndex(h => h.includes('last changed'));
 
   const detailsList: InjuryDetail[] = [];
@@ -73,37 +73,43 @@ export function parseInjuryCSV(csvText: string): InjuryDetail[] {
     const cells = parseCSVLine(lines[i]);
     if (cells.length < 2) continue;
 
-    const name = nameIdx !== -1 ? cells[nameIdx] : '';
+    const name = nameIdx !== -1 && cells[nameIdx] ? cells[nameIdx] : '';
     if (!name) continue;
 
-    const rawConcern = (concernIdx !== -1 ? cells[concernIdx] : 'low').toLowerCase();
+    const rawConcern = (concernIdx !== -1 && cells[concernIdx] ? cells[concernIdx] : 'low').toLowerCase();
     let concernLevel: 'low' | 'mild' | 'medium' | 'high' = 'low';
     if (rawConcern.includes('high')) concernLevel = 'high';
     else if (rawConcern.includes('med')) concernLevel = 'medium';
     else if (rawConcern.includes('mild')) concernLevel = 'mild';
     else concernLevel = 'low';
 
+    let doctorNotes: string | undefined = undefined;
+    if (notesIdx !== -1 && cells.length > notesIdx) {
+      const endIdx = lastChangedIdx !== -1 && lastChangedIdx > notesIdx ? lastChangedIdx : cells.length;
+      doctorNotes = cells.slice(notesIdx, endIdx).filter(Boolean).join(', ').trim();
+    }
+
     const detail: InjuryDetail = {
       sleeperId: sleeperIdIdx !== -1 && cells[sleeperIdIdx] ? cells[sleeperIdIdx] : undefined,
       playerName: name,
-      position: posIdx !== -1 ? cells[posIdx] : '',
-      team: teamIdx !== -1 ? cells[teamIdx] : '',
+      position: posIdx !== -1 && cells[posIdx] ? cells[posIdx] : '',
+      team: teamIdx !== -1 && cells[teamIdx] ? cells[teamIdx] : '',
       injuryName: injuryNameIdx !== -1 && cells[injuryNameIdx] ? cells[injuryNameIdx] : 'Injury Concern',
-      injuryDate: injuryDateIdx !== -1 ? cells[injuryDateIdx] : undefined,
-      surgeryDate: surgeryDateIdx !== -1 ? cells[surgeryDateIdx] : undefined,
-      additionalDetails: detailsIdx !== -1 ? cells[detailsIdx] : undefined,
-      typicalRecovery: recoveryIdx !== -1 ? cells[recoveryIdx] : undefined,
-      expectedReturn: returnIdx !== -1 ? cells[returnIdx] : undefined,
-      reinjuryRate: reinjuryIdx !== -1 ? cells[reinjuryIdx] : undefined,
+      injuryDate: injuryDateIdx !== -1 && cells[injuryDateIdx] ? cells[injuryDateIdx] : undefined,
+      surgeryDate: surgeryDateIdx !== -1 && cells[surgeryDateIdx] ? cells[surgeryDateIdx] : undefined,
+      additionalDetails: detailsIdx !== -1 && cells[detailsIdx] ? cells[detailsIdx] : undefined,
+      typicalRecovery: recoveryIdx !== -1 && cells[recoveryIdx] ? cells[recoveryIdx] : undefined,
+      expectedReturn: returnIdx !== -1 && cells[returnIdx] ? cells[returnIdx] : undefined,
+      reinjuryRate: reinjuryIdx !== -1 && cells[reinjuryIdx] ? cells[reinjuryIdx] : undefined,
       concernLevel,
-      doctorNotes: notesIdx !== -1 ? cells[notesIdx] : undefined,
-      lastChangedAt: lastChangedIdx !== -1 ? cells[lastChangedIdx] : undefined,
+      doctorNotes: doctorNotes || (detailsIdx !== -1 && cells[detailsIdx] ? cells[detailsIdx] : undefined),
+      lastChangedAt: lastChangedIdx !== -1 && cells[lastChangedIdx] ? cells[lastChangedIdx] : undefined,
     };
 
     detailsList.push(detail);
 
     if (detail.sleeperId) {
-      bySleeperId.set(detail.sleeperId, detail);
+      bySleeperId.set(String(detail.sleeperId), detail);
     }
     const key = matchKey(detail.playerName, detail.position || undefined);
     byNameKey.set(key, detail);
