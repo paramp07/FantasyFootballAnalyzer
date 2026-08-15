@@ -12,6 +12,7 @@
   font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
+  font-style: normal;
   letter-spacing: 0.05em;
   line-height: 1;
   text-transform: uppercase;
@@ -20,6 +21,7 @@
   background: transparent;
   color: var(--blood-text);
   border: 1px solid var(--blood);
+  white-space: nowrap;
   transition: transform 0.15s ease, filter 0.15s ease;
 }
 
