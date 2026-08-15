@@ -67,7 +67,14 @@ export function RosterSummary({ state, rosterSlots, reserved, listClassName, sho
             {pick ? (
               pick.isReserved ? (
                 <>
-                  <span className={styles.rowName}>{pick.player.name}</span>
+                  <span className={styles.rowName}>
+                    {pick.player.name}
+                    {pick.player.bye !== null && (
+                      <span style={{ fontSize: '0.75rem', opacity: 0.6, marginLeft: '0.5rem' }}>
+                        (Bye {pick.player.bye})
+                      </span>
+                    )}
+                  </span>
                   <span
                     className={styles.keeperChip}
                     title={
@@ -83,7 +90,14 @@ export function RosterSummary({ state, rosterSlots, reserved, listClassName, sho
                 </>
               ) : (
                 <>
-                  <span className={styles.rowName}>{pick.player.name}</span>
+                  <span className={styles.rowName}>
+                    {pick.player.name}
+                    {pick.player.bye !== null && (
+                      <span style={{ fontSize: '0.75rem', opacity: 0.6, marginLeft: '0.5rem' }}>
+                        (Bye {pick.player.bye})
+                      </span>
+                    )}
+                  </span>
                   {pick.event.kind === 'auction_sale' && (
                     <span className={styles.rowValue}>${pick.event.price}</span>
                   )}

@@ -828,3 +828,41 @@
   justify-content: flex-end;
 }
 
+.btnPrimary {
+  background: transparent;
+  border: 2px solid var(--bone, #f5f5f5);
+  color: var(--bone, #f5f5f5);
+  padding: 0.55rem 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btnPrimary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--bone);
+  color: var(--bone);
+}
+
+.btn {
+  background: transparent;
+  border: 2px solid var(--bone-dim, #b5b5b5);
+  color: var(--bone-dim, #b5b5b5);
+  padding: 0.55rem 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn:hover {
+  border-color: var(--bone);
+  color: var(--bone);
+  background: rgba(255, 255, 255, 0.05);
+}
+

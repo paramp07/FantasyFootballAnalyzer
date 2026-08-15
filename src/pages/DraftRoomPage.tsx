@@ -33,7 +33,7 @@ import { TierBoard } from '@/components/draftRoom/TierBoard';
 import { detectRun } from '@/utils/draftAlerts';
 import { allKeepers, fullPositions, lineupRows, reservedKeepersFor } from '@/utils/draftEngine';
 import { vibrate } from '@/utils/haptics';
-import { getSavedPresets, getActivePresetId } from '@/utils/customRankings';
+import { getSavedPresets, getActivePresetId, setActivePresetId } from '@/utils/customRankings';
 import { applyActivePreset } from '@/data/draftPool';
 import { picksUntilMine } from '@/utils/pickPreview';
 import { nextPickFor } from '@/utils/snakeOrder';
@@ -132,12 +132,11 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
   const liveSync = useLiveDraftSync(league, room);
   const [showInactivityModal, setShowInactivityModal] = useState(false);
   const [rankingPresets] = useState(() => getSavedPresets());
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const activePresetId = getActivePresetId();
+  const [activePresetId, setActivePresetIdState] = useState<string | null>(() => getActivePresetId());
   const lastDismissedPickCount = useRef(-1);
 
   if (import.meta.env.DEV) {
-    console.log('[DraftRoomPage] Active preset or trigger updated:', activePresetId, refreshTrigger);
+    console.log('[DraftRoomPage] Active preset updated:', activePresetId);
   }
 
   useEffect(() => {
@@ -681,8 +680,9 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
                     onChange={e => {
                       const val = e.target.value;
                       const nextId = val === 'consensus' ? null : val;
+                      setActivePresetId(nextId);
+                      setActivePresetIdState(nextId);
                       applyActivePreset(nextId);
-                      setRefreshTrigger(prev => prev + 1);
                     }}
                     style={{
                       background: 'var(--ink-2, #1a1a1a)',
@@ -1116,7 +1116,6 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
               <button
                 type="button"
                 className={styles.btn}
-                style={{ border: '2px solid var(--bone-dim)', background: 'transparent', cursor: 'pointer' }}
                 onClick={handleKeepDrafting}
               >
                 Keep Drafting

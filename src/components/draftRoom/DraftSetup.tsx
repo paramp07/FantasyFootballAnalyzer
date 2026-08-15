@@ -14,14 +14,18 @@ import {
   resolveKeeperRounds,
 } from '@/utils/keeperGuess';
 import { loadDraftArchive, removeFromDraftArchive } from '@/utils/draftRoomCache';
+import { Download, FileUp, Save, X } from 'lucide-react';
 import {
   deletePreset,
+  exportAllPresetsJSON,
+  exportPresetJSON,
+  importPresetsFromJSON,
   loadPresets,
   savePreset,
   settingsFromConfig,
   type DraftPreset,
 } from '@/utils/draftPresets';
-import { getSavedPresets, getActivePresetId } from '@/utils/customRankings';
+import { getSavedPresets, getActivePresetId, setActivePresetId } from '@/utils/customRankings';
 import { applyActivePreset } from '@/data/draftPool';
 import styles from './DraftSetup.module.css';
 
@@ -104,7 +108,7 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
   const [presets, setPresets] = useState<DraftPreset[]>(() => loadPresets());
   const [presetName, setPresetName] = useState('');
   const [rankingPresets, setRankingPresets] = useState(() => getSavedPresets());
-  const activePresetId = getActivePresetId();
+  const [activePresetId, setActivePresetIdState] = useState<string | null>(() => getActivePresetId());
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const sectionOpen = !isMobile;
 
@@ -159,6 +163,16 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
 
   const teamKeeperIds = (teamId: string) =>
     (config.keepers ?? []).filter(k => k.teamId === teamId).map(k => k.playerId);
+
+  useEffect(() => {
+    const lastPresetName = localStorage.getItem('ffa:last_active_draft_preset');
+    if (lastPresetName) {
+      const found = presets.find(p => p.name === lastPresetName);
+      if (found) {
+        updateConfig(found.settings);
+      }
+    }
+  }, []);
 
   // A keeper league always keeps someone, so the section starts ON with the
   // guesses pre-filled (commish-set keepers pinned) instead of waiting for
@@ -277,11 +291,21 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
   };
 
   const saveCurrentPreset = () => {
-    if (!presetName.trim()) return;
-    setPresets(savePreset(presetName, settingsFromConfig(config)));
+    let nameToSave = presetName.trim();
+    if (!nameToSave) {
+      const used = new Set(presets.map(p => p.name));
+      let n = 1;
+      while (used.has(`Preset #${n}`)) n++;
+      nameToSave = `Preset #${n}`;
+    }
+    setPresets(savePreset(nameToSave, settingsFromConfig(config)));
+    localStorage.setItem('ffa:last_active_draft_preset', nameToSave);
     setPresetName('');
   };
-  const applyPreset = (preset: DraftPreset) => updateConfig(preset.settings);
+  const applyPreset = (preset: DraftPreset) => {
+    updateConfig(preset.settings);
+    localStorage.setItem('ffa:last_active_draft_preset', preset.name);
+  };
   const removePreset = (name: string) => setPresets(deletePreset(name));
 
   // A one-line confirmation of the headline settings, so the user can see at a
@@ -515,6 +539,8 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
                   onChange={e => {
                     const val = e.target.value;
                     const nextId = val === 'consensus' ? null : val;
+                    setActivePresetId(nextId);
+                    setActivePresetIdState(nextId);
                     applyActivePreset(nextId);
                     setRankingPresets(getSavedPresets());
                   }}
@@ -802,9 +828,53 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
               if (e.key === 'Enter') saveCurrentPreset();
             }}
           />
-          <button type="button" className={styles.btn} onClick={saveCurrentPreset} disabled={!presetName.trim()}>
-            Save
-          </button>
+          <div className={styles.presetButtonGroup}>
+            <button
+              type="button"
+              className={styles.presetBtn}
+              onClick={saveCurrentPreset}
+            >
+              <Save size={13} style={{ color: 'inherit' }} /> Save
+            </button>
+            <label
+              className={styles.presetBtn}
+              style={{ cursor: 'pointer' }}
+              title="Import preset(s) from a JSON file"
+            >
+              <FileUp size={13} style={{ color: 'inherit' }} /> Import
+              <input
+                type="file"
+                accept=".json"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = ev => {
+                    try {
+                      const content = ev.target?.result as string;
+                      const updated = importPresetsFromJSON(content);
+                      setPresets(updated);
+                    } catch {
+                      alert('Invalid JSON preset file.');
+                    }
+                  };
+                  reader.readAsText(file);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            {presets.length > 0 && (
+              <button
+                type="button"
+                className={styles.presetBtn}
+                onClick={exportAllPresetsJSON}
+                title="Download all saved presets as JSON"
+              >
+                <Download size={13} style={{ color: 'inherit' }} /> Export All
+              </button>
+            )}
+          </div>
         </div>
         {presets.length > 0 && (
           <div className={styles.keeperList}>
@@ -812,16 +882,26 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
               <div key={preset.name} className={styles.teamRow}>
                 <span className={styles.archiveLabel}>{preset.name}</span>
                 <div className={styles.teamButtons}>
-                  <button type="button" className={styles.btn} onClick={() => applyPreset(preset)}>
+                  <button type="button" className={styles.presetBtn} onClick={() => applyPreset(preset)}>
                     Load
                   </button>
                   <button
                     type="button"
                     className={styles.iconBtn}
+                    onClick={() => exportPresetJSON(preset)}
+                    title={`Export preset ${preset.name} as JSON`}
+                    aria-label={`Export preset ${preset.name}`}
+                  >
+                    <Download size={13} style={{ color: 'inherit' }} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.iconBtn}
                     onClick={() => removePreset(preset.name)}
+                    title={`Delete preset ${preset.name}`}
                     aria-label={`Delete preset ${preset.name}`}
                   >
-                    ✕
+                    <X size={14} style={{ color: 'inherit' }} />
                   </button>
                 </div>
               </div>

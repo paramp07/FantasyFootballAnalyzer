@@ -61,7 +61,7 @@ export interface UseLiveDraftSyncReturn {
 // logEvent path manual entry uses. Yahoo/ESPN stay manual (Yahoo has no
 // public draft feed; ESPN picks carry ids the pool doesn't map yet).
 export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseLiveDraftSyncReturn {
-  const { config, derived, phase, pool, logEvents, setLiveKeepers, start } = room;
+  const { config, derived, phase, pool, events, logEvents, replaceEvents, setLiveKeepers, start } = room;
 
   const [enabled, setEnabled] = useState(false);
   const [status, setStatus] = useState<LiveSyncStatus>('idle');
@@ -440,10 +440,12 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
 
       console.log(`%c[FFA Extension Sync] Current Picks (${picks.length}):`, 'color: #d6ff2e; font-weight: bold;');
       
-      const batch: any[] = [];
+      const newEvents: any[] = [];
       const skipped: string[] = [];
 
-      for (const p of picks) {
+      const sortedPicks = [...picks].sort((a, b) => a.overall - b.overall);
+
+      for (const p of sortedPicks) {
         console.log(`  Pick #${p.overall}: ${p.player_name || 'Unknown Player'} (${p.position || 'Unknown Pos'})`);
 
         if (!p.player_name) continue;
@@ -462,8 +464,6 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
           continue;
         }
 
-        if (derived.draftedPlayerIds.has(playerId)) continue;
-
         const slot = slotForOverall(p.overall, teamsCount, draftType);
         const teamId = seatForSlot(slot, 0);
 
@@ -473,7 +473,7 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
         }
 
         const price = Number(p.winningBid || p.amount || 1);
-        batch.push(
+        newEvents.push(
           config.draftType === 'auction'
             ? {
                 kind: 'auction_sale' as const,
@@ -481,28 +481,31 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
                 nominatedById: teamId,
                 wonById: teamId,
                 price: price,
+                seq: newEvents.length,
+                ts: Date.now()
               }
             : {
                 kind: 'snake_pick' as const,
                 playerId,
                 teamId,
+                seq: newEvents.length,
+                ts: Date.now()
               }
         );
       }
 
       setUnmapped(prev => (prev.join('|') === skipped.join('|') ? prev : skipped));
 
-      if (batch.length > 0) {
-        if (phase === 'setup') {
+      // Rebuild and overwrite if mismatched to prevent sequence disruption
+      const hasChanges = newEvents.length !== events.length ||
+        newEvents.some((ev, idx) => events[idx]?.playerId !== ev.playerId);
+
+      if (hasChanges) {
+        if (phase === 'setup' && newEvents.length > 0) {
           start();
         }
-        console.log('[FFA Extension Sync] Ingesting batch:', batch);
-        const rejection = logEvents(batch);
-        if (rejection) {
-          if (rejection.error !== 'That player has already been drafted.') {
-            console.error('[FFA Extension Sync] Rejection error:', rejection.error);
-          }
-        }
+        console.log('[FFA Extension Sync] Overwriting events to sync with platform:', newEvents);
+        replaceEvents(newEvents);
       }
     };
 
@@ -561,7 +564,7 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
       if (ws) ws.close();
       if (wsTimer) clearTimeout(wsTimer);
     };
-  }, [enabled, available, league.platform, config.teams.length, config.draftType, slotSeats, config.myTeamId, derived.draftedPlayerIds, byMatchKey, teamIds, logEvents, seatForSlot, phase, start]);
+  }, [enabled, available, league.platform, config.teams.length, config.draftType, slotSeats, config.myTeamId, derived.draftedPlayerIds, byMatchKey, teamIds, events, logEvents, replaceEvents, seatForSlot, phase, start]);
 
 
 

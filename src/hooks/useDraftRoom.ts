@@ -52,7 +52,8 @@ type Action =
   | { type: 'UNDO' }
   | { type: 'RESET' }
   | { type: 'END_DRAFT' }
-  | { type: 'RESUME'; session: DraftRoomSession; readOnly?: boolean };
+  | { type: 'RESUME'; session: DraftRoomSession; readOnly?: boolean }
+  | { type: 'REPLACE_EVENTS'; events: DraftEvent[] };
 
 // Draft sessions are keyed (and labeled) by the POOL season, not the loaded
 // league's season: in June you're looking at last year's completed league
@@ -241,6 +242,14 @@ function reducer(state: DraftRoomState, action: Action): DraftRoomState {
         events: action.session.events,
         readOnly: action.readOnly ?? false,
       };
+    case 'REPLACE_EVENTS': {
+      const total = state.config.teams.length * state.config.rounds;
+      return {
+        ...state,
+        events: action.events,
+        phase: action.events.length >= total ? 'complete' : state.phase === 'setup' && action.events.length > 0 ? 'drafting' : state.phase,
+      };
+    }
     default:
       return state;
   }
@@ -270,6 +279,7 @@ export interface UseDraftRoomReturn {
   // stands AFTER the events before it in the batch. Logs the valid prefix;
   // returns the first rejection with its batch index, or null.
   logEvents: (events: DraftEventInput[]) => { index: number; error: string } | null;
+  replaceEvents: (events: DraftEvent[]) => void;
   undo: () => void;
   endDraft: () => void;
   reset: () => void;
@@ -525,6 +535,7 @@ export function useDraftRoom(league: League): UseDraftRoomReturn {
     start: useCallback(() => dispatch({ type: 'START' }), []),
     logEvent,
     logEvents,
+    replaceEvents: useCallback(events => dispatch({ type: 'REPLACE_EVENTS', events }), []),
     undo: useCallback(() => dispatch({ type: 'UNDO' }), []),
     endDraft: useCallback(() => dispatch({ type: 'END_DRAFT' }), []),
     reset,
