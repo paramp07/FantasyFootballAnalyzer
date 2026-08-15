@@ -244,3 +244,36 @@
 .posTE { color: var(--pos-te); }
 .posK { color: var(--pos-k); }
 .posDST { color: var(--pos-dst); }
+
+.resizeHandle {
+  height: 12px;
+  background: var(--ink);
+  border-top: 1px solid var(--rule);
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: none;
+  transition: background 0.15s ease;
+}
+
+.resizeHandle:hover,
+.resizeHandle:active {
+  background: var(--ink-2);
+}
+
+.handleBar {
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--bone-dim);
+  opacity: 0.5;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.resizeHandle:hover .handleBar,
+.resizeHandle:active .handleBar {
+  opacity: 1;
+  background: var(--lime);
+}

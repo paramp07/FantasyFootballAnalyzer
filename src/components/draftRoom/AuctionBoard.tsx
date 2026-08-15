@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { UseDraftRoomReturn } from '@/hooks/useDraftRoom';
+import { useResizableBoard } from '@/hooks/useResizableBoard';
 import type { RosterSlots } from '@/types';
 import {
   assignLineup,
@@ -62,6 +63,7 @@ function slotRows(slots: RosterSlots): Array<{ slot: LineupSlot; index: number; 
 export function AuctionBoard({ room }: AuctionBoardProps) {
   const { config, derived } = room;
   const teamCount = config.teams.length;
+  const { scrollerRef, handleMouseDown, handleTouchStart, style: resizableStyle } = useResizableBoard(368);
 
   const rows = useMemo(() => slotRows(config.rosterSlots), [config.rosterSlots]);
 
@@ -98,7 +100,7 @@ export function AuctionBoard({ room }: AuctionBoardProps) {
           ))}
         </span>
       </div>
-      <div className={`${styles.scroller} scroll-x-hint`}>
+      <div ref={scrollerRef} className={`${styles.scroller} scroll-x-hint`} style={resizableStyle}>
         <div className={styles.grid} style={gridStyle} role="presentation">
           <div className={`${styles.head} ${styles.corner}`} />
           {config.teams.map(team => {
@@ -156,6 +158,14 @@ export function AuctionBoard({ room }: AuctionBoardProps) {
             </div>
           ))}
         </div>
+      </div>
+      <div
+        className={styles.resizeHandle}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        title="Hold and drag to adjust board height"
+      >
+        <div className={styles.handleBar} />
       </div>
     </div>
   );

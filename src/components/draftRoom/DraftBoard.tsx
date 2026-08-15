@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { UseDraftRoomReturn } from '@/hooks/useDraftRoom';
+import { useResizableBoard } from '@/hooks/useResizableBoard';
 import { teamIndexForPick } from '@/utils/snakeOrder';
 import styles from './DraftBoard.module.css';
 
@@ -39,7 +40,7 @@ function shortName(name: string, pos: string, team: string): string {
 export function DraftBoard({ room }: DraftBoardProps) {
   const { config, derived, events, phase, pool } = room;
   const teamCount = config.teams.length;
-  const scrollerRef = useRef<HTMLDivElement>(null);
+  const { scrollerRef, handleMouseDown, handleTouchStart, style: resizableStyle } = useResizableBoard(336);
   const clockCellRef = useRef<HTMLDivElement>(null);
 
   const playerById = useMemo(() => new Map(pool.players.map(p => [p.id, p])), [pool.players]);
@@ -130,7 +131,7 @@ export function DraftBoard({ room }: DraftBoardProps) {
           ))}
         </span>
       </div>
-      <div ref={scrollerRef} className={`${styles.scroller} scroll-x-hint`}>
+      <div ref={scrollerRef} className={`${styles.scroller} scroll-x-hint`} style={resizableStyle}>
         <div className={styles.grid} style={gridStyle} role="presentation">
           {config.teams.map(team => (
             <div
@@ -197,6 +198,14 @@ export function DraftBoard({ room }: DraftBoardProps) {
             }),
           )}
         </div>
+      </div>
+      <div
+        className={styles.resizeHandle}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        title="Hold and drag to adjust board height"
+      >
+        <div className={styles.handleBar} />
       </div>
     </div>
   );
