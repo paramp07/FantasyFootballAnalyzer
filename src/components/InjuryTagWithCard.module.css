@@ -88,9 +88,9 @@
 }
 
 .title {
-  font-family: var(--font-mono);
+  font-family: 'Bowlby One', cursive, sans-serif;
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: -0.01em;
   text-transform: uppercase;
   color: var(--bone);
