@@ -8,7 +8,7 @@
 
 .tag {
   display: inline-block;
-  padding: 0.08rem 0.25rem;
+  padding: 0.20rem 0.25rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
@@ -38,9 +38,9 @@
 
 .card {
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 0;
-  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
   z-index: 1000;
   width: 380px;
   max-width: 90vw;
@@ -180,7 +180,7 @@
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
