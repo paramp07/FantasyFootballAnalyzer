@@ -1,0 +1,474 @@
+[
+  {
+    "name": "Christian McCaffrey",
+    "id": "christian-mccaffrey-rb",
+    "team": "SF",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Jeremiyah Love",
+    "id": "jeremiyah-love-rb",
+    "team": "ARI",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Ankle"
+  },
+  {
+    "name": "Luther Burden III",
+    "id": "luther-burden-wr",
+    "team": "CHI",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Lower Body"
+  },
+  {
+    "name": "Jadarian Price",
+    "id": "jadarian-price-rb",
+    "team": "SEA",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Soreness"
+  },
+  {
+    "name": "DK Metcalf",
+    "id": "dk-metcalf-wr",
+    "team": "PIT",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Michael Pittman Jr.",
+    "id": "michael-pittman-wr",
+    "team": "PIT",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Leg"
+  },
+  {
+    "name": "Patrick Mahomes II",
+    "id": "patrick-mahomes-qb",
+    "team": "KC",
+    "pos": "QB",
+    "status": "Questionable",
+    "notes": "Surgery"
+  },
+  {
+    "name": "Jordan Addison",
+    "id": "jordan-addison-wr",
+    "team": "MIN",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Thumb"
+  },
+  {
+    "name": "Jalen McMillan",
+    "id": "jalen-mcmillan-wr",
+    "team": "TB",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Calf"
+  },
+  {
+    "name": "Geno Smith",
+    "id": "geno-smith-qb",
+    "team": "NYJ",
+    "pos": "QB",
+    "status": "Questionable",
+    "notes": "Soreness"
+  },
+  {
+    "name": "Isaiah Davis",
+    "id": "isaiah-davis-rb",
+    "team": "NYJ",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Knee"
+  },
+  {
+    "name": "DJ Giddens",
+    "id": "dj-giddens-rb",
+    "team": "IND",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Hamstring"
+  },
+  {
+    "name": "Christian Kirk",
+    "id": "christian-kirk-wr",
+    "team": "SF",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Ty Johnson",
+    "id": "ty-johnson-rb",
+    "team": "BUF",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Knee"
+  },
+  {
+    "name": "Michael Penix Jr.",
+    "id": "michael-penix-qb",
+    "team": "ATL",
+    "pos": "QB",
+    "status": "Questionable",
+    "notes": "Surgery"
+  },
+  {
+    "name": "Marvin Mims Jr.",
+    "id": "marvin-mims-wr",
+    "team": "DEN",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Devin Neal",
+    "id": "devin-neal-rb",
+    "team": "NO",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Hamstring"
+  },
+  {
+    "name": "Kendre Miller",
+    "id": "kendre-miller-rb",
+    "team": "NO",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Back"
+  },
+  {
+    "name": "Brandon Aiyuk",
+    "id": "brandon-aiyuk-wr",
+    "team": "SF",
+    "pos": "WR",
+    "status": "DNR",
+    "notes": "Surgery"
+  },
+  {
+    "name": "Isaac Guerendo",
+    "id": "isaac-guerendo-rb",
+    "team": "SF",
+    "pos": "RB",
+    "status": "PUP",
+    "notes": "Surgery"
+  },
+  {
+    "name": "Cedric Tillman",
+    "id": "cedric-tillman-wr",
+    "team": "CLE",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Carson Beck",
+    "id": "carson-beck-qb",
+    "team": "ARI",
+    "pos": "QB",
+    "status": "Questionable",
+    "notes": "Ribs"
+  },
+  {
+    "name": "Tez Johnson",
+    "id": "tez-johnson-wr",
+    "team": "TB",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Strain"
+  },
+  {
+    "name": "Jawhar Jordan",
+    "id": "jawhar-jordan-rb",
+    "team": "HOU",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Strain"
+  },
+  {
+    "name": "Kevin Coleman Jr.",
+    "id": "kevin-coleman-wr",
+    "team": "MIA",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Luke Musgrave",
+    "id": "luke-musgrave-te",
+    "team": "GB",
+    "pos": "TE",
+    "status": "PUP",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Zavion Thomas",
+    "id": "zavion-thomas-wr",
+    "team": "CHI",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Dameon Pierce",
+    "id": "dameon-pierce-rb",
+    "team": "PHI",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Hamstring"
+  },
+  {
+    "name": "Zane Gonzalez",
+    "id": "zane-gonzalez-k",
+    "team": "MIA",
+    "pos": "K",
+    "status": "IR",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Marcus Mariota",
+    "id": "marcus-mariota-qb",
+    "team": "WAS",
+    "pos": "QB",
+    "status": "Questionable",
+    "notes": "Knee"
+  },
+  {
+    "name": "Sione Vaki",
+    "id": "sione-vaki-rb",
+    "team": "DET",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Eye"
+  },
+  {
+    "name": "Terrell Jennings",
+    "id": "terrell-jennings-rb",
+    "team": "NE",
+    "pos": "RB",
+    "status": "IR",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "John Bates",
+    "id": "john-bates-te",
+    "team": "WAS",
+    "pos": "TE",
+    "status": "Questionable",
+    "notes": "Hamstring"
+  },
+  {
+    "name": "Jeremy McNichols",
+    "id": "jeremy-mcnichols-rb",
+    "team": "WAS",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Quadriceps"
+  },
+  {
+    "name": "Marquez Valdes-Scantling",
+    "id": "marquez-valdesscantling-wr",
+    "team": "DAL",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Kalel Mullings",
+    "id": "kalel-mullings-rb",
+    "team": "TEN",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Hip"
+  },
+  {
+    "name": "JuJu Smith-Schuster",
+    "id": "juju-smithschuster-wr",
+    "team": "NYG",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Knee"
+  },
+  {
+    "name": "Michael Woods II",
+    "id": "michael-woods-wr",
+    "team": "DEN",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Leg"
+  },
+  {
+    "name": "British Brooks",
+    "id": "british-brooks-rb",
+    "team": "HOU",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Hand"
+  },
+  {
+    "name": "Jacob Cowing",
+    "id": "jacob-cowing-wr",
+    "team": "SF",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Hip"
+  },
+  {
+    "name": "Jake Browning",
+    "id": "jake-browning-qb",
+    "team": "TB",
+    "pos": "QB",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Davis Allen",
+    "id": "davis-allen-te",
+    "team": "LAR",
+    "pos": "TE",
+    "status": "Questionable",
+    "notes": "Quadriceps"
+  },
+  {
+    "name": "Tip Reiman",
+    "id": "tip-reiman-te",
+    "team": "ARI",
+    "pos": "TE",
+    "status": "PUP",
+    "notes": "Ankle"
+  },
+  {
+    "name": "Ben Sims",
+    "id": "ben-sims-te",
+    "team": "MIA",
+    "pos": "TE",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Julian Hill",
+    "id": "julian-hill-te",
+    "team": "NE",
+    "pos": "TE",
+    "status": "IR",
+    "notes": "Knee"
+  },
+  {
+    "name": "Kendrick Law",
+    "id": "kendrick-law-wr",
+    "team": "DET",
+    "pos": "WR",
+    "status": "IR",
+    "notes": "Knee - ACL"
+  },
+  {
+    "name": "Brevin Jordan",
+    "id": "brevin-jordan-te",
+    "team": "HOU",
+    "pos": "TE",
+    "status": "Questionable",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Xavier Weaver",
+    "id": "xavier-weaver-wr",
+    "team": "ARI",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Concussion"
+  },
+  {
+    "name": "Gavin Bartholomew",
+    "id": "gavin-bartholomew-te",
+    "team": "MIN",
+    "pos": "TE",
+    "status": "Questionable",
+    "notes": "Back"
+  },
+  {
+    "name": "Mason Tipton",
+    "id": "mason-tipton-wr",
+    "team": "NO",
+    "pos": "WR",
+    "status": "PUP",
+    "notes": "Groin"
+  },
+  {
+    "name": "Jamari Thrash",
+    "id": "jamari-thrash-wr",
+    "team": "CLE",
+    "pos": "WR",
+    "status": "IR",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Joshua Pitsenberger",
+    "id": "joshua-pitsenberger-rb",
+    "team": "HOU",
+    "pos": "RB",
+    "status": "Questionable",
+    "notes": "Ankle"
+  },
+  {
+    "name": "Jalin Hyatt",
+    "id": "jalin-hyatt-wr",
+    "team": "NYG",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Ankle"
+  },
+  {
+    "name": "Tyrell Shavers",
+    "id": "tyrell-shavers-wr",
+    "team": "BUF",
+    "pos": "WR",
+    "status": "PUP",
+    "notes": "Surgery"
+  },
+  {
+    "name": "Britain Covey",
+    "id": "britain-covey-wr",
+    "team": "PHI",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Hamstring"
+  },
+  {
+    "name": "Beaux Collins",
+    "id": "beaux-collins-wr",
+    "team": "FA",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Concussion"
+  },
+  {
+    "name": "Danny Gray",
+    "id": "danny-gray-wr",
+    "team": "PHI",
+    "pos": "WR",
+    "status": "Questionable",
+    "notes": "Concussion"
+  },
+  {
+    "name": "Kyron Hudson",
+    "id": "kyron-hudson-wr",
+    "team": "CHI",
+    "pos": "WR",
+    "status": "IR",
+    "notes": "Undisclosed"
+  },
+  {
+    "name": "Brock Rechsteiner",
+    "id": "brock-rechsteiner-wr",
+    "team": "NO",
+    "pos": "WR",
+    "status": "Sus",
+    "notes": "Suspension"
+  }
+]

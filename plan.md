@@ -21,3 +21,9 @@ newer
 - make it so the user can download the current preset. make the download rankings button be next to save current.
 - and instead of fp rank make it ffa rank since that is our own app rankigns and fp stands for fantasypros which we sdont care about and is useless if we edit their own rankigns.
 
+newer 2.0
+- injury stuff  (done)
+- fix the alignment issue on the rb run / wr run etc status box. text is not center vertically. 
+- player stats (sleeper python api)
+ - consesnsun rankings for team offense ranking and vegas ppg projections, team oline raknings, team qb rnakings, team oc/playercaller ranking.
+- sleepr integration

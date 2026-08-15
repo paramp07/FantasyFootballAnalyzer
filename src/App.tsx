@@ -407,48 +407,6 @@ function App() {
 
 
 
-  const handleLoadLeague = async (credentials: LeagueCredentials) => {
-    let loaded = await load(credentials);
-    // Stay on the form when the load failed; the error renders there.
-    if (!loaded) return;
-    // A Sleeper league id is pinned to one season, so a saved id keeps
-    // landing on last year even after the league renews. Follow the renewal
-    // so connecting lands on the newest season that exists. Only from last
-    // season: pasting a genuinely old id is a deliberate history visit, and
-    // the year dropdown still reaches every season either way.
-    if (loaded.platform === 'sleeper' && loaded.season === new Date().getFullYear() - 1) {
-      const successor = await findSuccessorLeague(loaded.id, loaded.season);
-      if (successor) {
-        logger.debug('[App] Sleeper league renewed; following to', successor.season);
-        const next = await load({ platform: 'sleeper', leagueId: successor.leagueId });
-        if (next) {
-          loaded = next;
-        } else {
-          // The failed follow clobbered the hook's state (league null, error
-          // set, refresh() aimed at the successor). Reload the original (a
-          // cache hit, so instant) so the user lands on the league that did
-          // load instead of bouncing back to the form.
-          const restored = await load(credentials);
-          if (!restored) return;
-          loaded = restored;
-        }
-      }
-    }
-    // Remember the connection (public identifiers only) so the form comes
-    // prefilled next visit. The loaded league's values, not the form's, so a
-    // mistyped id is never saved and a followed renewal saves the newest id.
-    rememberConnection(loaded.platform, loaded.id, loaded.season);
-    if (isEmptyPreseason(loaded)) {
-      // A fresh connect landing on the Draft Room's setup form otherwise
-      // gives no sign the connect worked (off-season: no draft data to show
-      // yet). The flag rides in navigation state, not the URL, so it
-      // doesn't survive a manual refresh or reappear on later visits to
-      // /draft-room.
-      navigate('/draft-room', { state: { justConnected: true } });
-    } else {
-      navigate('/draft');
-    }
-  };
 
   // Guest mode: synthesize a league from picked settings (no fetch) and jump
   // straight to the chosen surface. The route guards treat a guest league like

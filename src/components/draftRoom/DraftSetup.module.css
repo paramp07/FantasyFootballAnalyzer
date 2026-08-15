@@ -288,6 +288,9 @@
   border: 2px solid var(--bone-dim);
   color: var(--bone-dim);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .iconBtn:hover:not(:disabled) {
@@ -431,10 +434,13 @@
   display: flex;
   gap: 0.5rem;
   margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .presetSave .input {
-  flex: 1;
+  flex: 1 1 200px;
+  min-width: 150px;
 }
 
 /* The headline-settings recap that sits beside the Start button. */
@@ -602,8 +608,46 @@
     width: 20px;
     height: 20px;
   }
+}
 
-  .sectionToggle {
-    min-height: 44px;
-  }
+.presetButtonGroup {
+  display: flex;
+  align-items: stretch;
+}
+
+.presetBtn {
+  padding: 0.7rem 1.2rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  border: 2px solid var(--bone);
+  background: transparent;
+  color: var(--bone);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  box-shadow: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.presetBtn:hover:not(:disabled) {
+  background: var(--bone);
+  color: var(--ink);
+}
+
+.presetBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.presetButtonGroup .presetBtn:not(:first-child) {
+  border-left: none;
+}
+
+.sectionToggle {
+  min-height: 44px;
 }
