@@ -159,6 +159,36 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
     saveToActivePreset(cleaned);
   };
 
+  const handleDeleteTier = (targetTier: number) => {
+    const updated = players.map(p => {
+      const isPos = posFilter && posFilter !== 'ALL';
+      const getTier = (player: PoolPlayer) => isPos ? (player.posTiers?.[posFilter] ?? player.tier) : player.tier;
+      const currentT = getTier(p);
+      
+      let newT = currentT;
+      if (currentT === targetTier) {
+        newT = Math.max(1, targetTier - 1);
+      } else if (currentT > targetTier) {
+        newT = currentT - 1;
+      }
+
+      if (isPos) {
+        return {
+          ...p,
+          posTiers: {
+            ...(p.posTiers ?? {}),
+            [posFilter]: newT,
+          },
+        };
+      } else {
+        return { ...p, tier: newT };
+      }
+    });
+    const cleaned = cleanTiers(updated, posFilter);
+    setPlayers(cleaned);
+    saveToActivePreset(cleaned);
+  };
+
   const isDragEnabled = sortBy === 'rank' && query.trim() === '';
 
   const [sortRev, setSortRev] = useState(false);
@@ -1277,6 +1307,13 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
             className={styles.contextMenuItem}
           >
             Add Tier Below
+          </div>
+          <div
+            onClick={() => handleDeleteTier(contextMenu.tier)}
+            className={styles.contextMenuItem}
+            style={{ color: 'var(--blood-text)' }}
+          >
+            Delete Tier
           </div>
         </div>
       )}
