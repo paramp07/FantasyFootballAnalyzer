@@ -128,6 +128,7 @@ export interface PoolPlayer {
   // has a SUPERFLEX slot. Absent without a superflex snapshot.
   overallRankSF?: number;
   tier: number;
+  posTiers?: Record<string, number>;
   bye: number | null;
   // FantasyPros auction $ at the pool file's baseline league shape; null
   // below the salary sheet's cutoff (treated as $1 everywhere).

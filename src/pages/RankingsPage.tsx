@@ -111,29 +111,55 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
 
   const handleAddTierAbove = (targetTier: number) => {
     const updated = players.map(p => {
-      if (p.tier >= targetTier) {
-        return { ...p, tier: p.tier + 1 };
+      const isPos = posFilter && posFilter !== 'ALL';
+      const getTier = (player: PoolPlayer) => isPos ? (player.posTiers?.[posFilter] ?? player.tier) : player.tier;
+      const currentT = getTier(p);
+      if (currentT >= targetTier) {
+        if (isPos) {
+          return {
+            ...p,
+            posTiers: {
+              ...(p.posTiers ?? {}),
+              [posFilter]: currentT + 1,
+            },
+          };
+        } else {
+          return { ...p, tier: p.tier + 1 };
+        }
       }
       return p;
     });
-    const cleaned = cleanTiers(updated);
+    const cleaned = cleanTiers(updated, posFilter);
     setPlayers(cleaned);
     saveToActivePreset(cleaned);
   };
 
   const handleAddTierBelow = (targetTier: number) => {
     const updated = players.map(p => {
-      if (p.tier > targetTier) {
-        return { ...p, tier: p.tier + 1 };
+      const isPos = posFilter && posFilter !== 'ALL';
+      const getTier = (player: PoolPlayer) => isPos ? (player.posTiers?.[posFilter] ?? player.tier) : player.tier;
+      const currentT = getTier(p);
+      if (currentT > targetTier) {
+        if (isPos) {
+          return {
+            ...p,
+            posTiers: {
+              ...(p.posTiers ?? {}),
+              [posFilter]: currentT + 1,
+            },
+          };
+        } else {
+          return { ...p, tier: p.tier + 1 };
+        }
       }
       return p;
     });
-    const cleaned = cleanTiers(updated);
+    const cleaned = cleanTiers(updated, posFilter);
     setPlayers(cleaned);
     saveToActivePreset(cleaned);
   };
 
-  const isDragEnabled = sortBy === 'rank' && posFilter === 'ALL' && query.trim() === '';
+  const isDragEnabled = sortBy === 'rank' && query.trim() === '';
 
   const [sortRev, setSortRev] = useState(false);
   const { playFilter, playSort, playError } = useSounds();
@@ -239,6 +265,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
       pos: p.pos,
       id: p.id,
       tier: p.tier,
+      posTiers: p.posTiers,
     }));
 
     if (activePresetId) {
@@ -353,15 +380,32 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
     }
     if (draggedIndex === null || draggedIndex === hoveredIndex) return;
 
-    // Swap items in state array
-    const result = [...players];
-    const targetTier = hoveredIndex < result.length
-      ? result[hoveredIndex].tier
-      : result[result.length - 1]?.tier ?? 1;
+    const draggedPlayer = visible[draggedIndex];
+    const hoveredPlayer = visible[hoveredIndex];
+    if (!draggedPlayer || !hoveredPlayer) return;
 
-    const [removed] = result.splice(draggedIndex, 1);
-    const updatedPlayer = { ...removed, tier: targetTier };
-    result.splice(hoveredIndex, 0, updatedPlayer);
+    const pDraggedIdx = players.findIndex(p => p.id === draggedPlayer.id);
+    const pHoveredIdx = players.findIndex(p => p.id === hoveredPlayer.id);
+    if (pDraggedIdx === -1 || pHoveredIdx === -1) return;
+
+    const result = [...players];
+    const isPos = posFilter && posFilter !== 'ALL';
+    const targetTier = isPos
+      ? (hoveredPlayer.posTiers?.[posFilter] ?? hoveredPlayer.tier)
+      : hoveredPlayer.tier;
+
+    const [removed] = result.splice(pDraggedIdx, 1);
+    const updatedPlayer = { ...removed };
+    if (isPos) {
+      updatedPlayer.posTiers = {
+        ...(updatedPlayer.posTiers ?? {}),
+        [posFilter]: targetTier,
+      };
+    } else {
+      updatedPlayer.tier = targetTier;
+    }
+
+    result.splice(pHoveredIdx, 0, updatedPlayer);
 
     // Update overallRank
     const updated = result.map((p, index) => {
@@ -389,14 +433,24 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
     });
 
     setPlayers(updated);
-    setDraggedIndex(hoveredIndex);
+    
+    // Find the new dragged index in visible
+    const newVisible = updated.filter(p => {
+      const q = normalizeName(deferredQuery);
+      const posMatch = posFilter === 'ALL' || (posFilter === 'FLEX' ? FLEX_POSITIONS.has(p.pos) : p.pos === posFilter);
+      return posMatch && (q === '' || normalizeName(p.name).includes(q));
+    });
+    const newDraggedIdx = newVisible.findIndex(p => p.id === draggedPlayer.id);
+    if (newDraggedIdx !== -1) {
+      setDraggedIndex(newDraggedIdx);
+    }
   };
 
   const handleDragEnd = () => {
     setDraggedIndex(null);
 
     // Clean tiers to fix any drag discrepancies
-    const cleaned = cleanTiers(players);
+    const cleaned = cleanTiers(players, posFilter);
     setPlayers(cleaned);
 
     // Save to local storage
@@ -406,22 +460,43 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
   const handleDrop = (e: React.DragEvent, hoveredIndex: number) => {
     if (draggableTier) {
       e.preventDefault();
-      const oldIndex = draggableTier.startIndex;
-      const newIndex = hoveredIndex;
-      const K = draggableTier.tier;
+      const isPos = posFilter && posFilter !== 'ALL';
+      const oldPlayer = visible[draggableTier.startIndex];
+      const targetPlayer = visible[hoveredIndex];
+      if (!oldPlayer || !targetPlayer) return;
 
+      const pOldIndex = players.findIndex(p => p.id === oldPlayer.id);
+      const pTargetIndex = players.findIndex(p => p.id === targetPlayer.id);
+      if (pOldIndex === -1 || pTargetIndex === -1) return;
+
+      const K = draggableTier.tier;
       const updated = [...players];
-      if (newIndex < oldIndex) {
-        for (let idx = newIndex; idx < oldIndex; idx++) {
-          updated[idx] = { ...updated[idx], tier: K };
+
+      const setT = (p: PoolPlayer, t: number) => {
+        if (isPos) {
+          return {
+            ...p,
+            posTiers: {
+              ...(p.posTiers ?? {}),
+              [posFilter]: t,
+            },
+          };
+        } else {
+          return { ...p, tier: t };
         }
-      } else if (newIndex > oldIndex) {
-        for (let idx = oldIndex; idx < newIndex; idx++) {
-          updated[idx] = { ...updated[idx], tier: K - 1 };
+      };
+
+      if (pTargetIndex < pOldIndex) {
+        for (let idx = pTargetIndex; idx < pOldIndex; idx++) {
+          updated[idx] = setT(updated[idx], K);
+        }
+      } else if (pTargetIndex > pOldIndex) {
+        for (let idx = pOldIndex; idx < pTargetIndex; idx++) {
+          updated[idx] = setT(updated[idx], K - 1);
         }
       }
 
-      const cleaned = cleanTiers(updated);
+      const cleaned = cleanTiers(updated, posFilter);
       setPlayers(cleaned);
 
       saveToActivePreset(cleaned);
@@ -1017,10 +1092,13 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                 // In superflex the FFA RK column tracks the superflex rank so it
                 // matches the delta and consensus (which use overallRankSF).
                 const ffaRank = superflex ? (p.overallRankSF ?? p.overallRank) : p.overallRank;
-                const prevTier = sortBy === 'rank' ? (i === 0 ? 0 : visible[i - 1].tier) : 0;
+                const isPos = posFilter && posFilter !== 'ALL';
+                const getTier = (player: PoolPlayer) => isPos ? (player.posTiers?.[posFilter] ?? player.tier) : player.tier;
+                const currentT = getTier(p);
+                const prevTier = sortBy === 'rank' ? (i === 0 ? 0 : getTier(visible[i - 1])) : 0;
                 const tierBreaks: number[] = [];
-                if (sortBy === 'rank' && p.tier > prevTier) {
-                  for (let t = prevTier + 1; t <= p.tier; t++) {
+                if (sortBy === 'rank' && currentT > prevTier) {
+                  for (let t = prevTier + 1; t <= currentT; t++) {
                     if (t > 0) tierBreaks.push(t);
                   }
                 }

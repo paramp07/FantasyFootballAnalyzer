@@ -8,6 +8,7 @@ export interface CustomRanking {
   id?: string;
   tier?: number;
   team?: string;
+  posTiers?: Record<string, number>;
 }
 
 function parseAbbreviatedName(name: string): { firstInitial: string; lastName: string } | null {
@@ -199,6 +200,7 @@ export function applyCustomRankingsToPool(
   const matchedPlayerIds = new Set<string>();
   const customRanksMap = new Map<string, number>();
   const customTiersMap = new Map<string, number>();
+  const customPosTiersMap = new Map<string, Record<string, number>>();
 
   customRankings.forEach(cr => {
     let matched: PoolPlayer | null = null;
@@ -276,6 +278,9 @@ export function applyCustomRankingsToPool(
         if (cr.tier !== undefined) {
           customTiersMap.set(matched.id, cr.tier);
         }
+        if (cr.posTiers !== undefined) {
+          customPosTiersMap.set(matched.id, cr.posTiers);
+        }
       }
     } else {
       const posSuffix = cr.pos ? ` (${cr.pos})` : '';
@@ -300,9 +305,11 @@ export function applyCustomRankingsToPool(
   // Map custom tiers to matched players
   const matchedMapped = matchedPlayers.map(p => {
     const customTier = customTiersMap.get(p.id);
+    const customPosTiers = customPosTiersMap.get(p.id);
     return {
       ...p,
       tier: customTier !== undefined ? customTier : p.tier,
+      posTiers: customPosTiers !== undefined ? customPosTiers : p.posTiers,
     };
   });
 
@@ -348,25 +355,42 @@ export function applyCustomRankingsToPool(
  * for all players with a valid tier (> 0). Resolves tier discrepancies by
  * pulling players up to their surrounding better tiers (backward scan).
  */
-export function cleanTiers(playersList: PoolPlayer[]): PoolPlayer[] {
+export function cleanTiers(playersList: PoolPlayer[], posFilter?: string): PoolPlayer[] {
   const result = [...playersList];
   if (result.length === 0) return result;
+
+  const isPos = posFilter && posFilter !== 'ALL';
+  const getTier = (p: PoolPlayer) => isPos ? (p.posTiers?.[posFilter!] ?? p.tier) : p.tier;
+  const setTier = (p: PoolPlayer, t: number) => {
+    if (isPos) {
+      return {
+        ...p,
+        posTiers: {
+          ...(p.posTiers ?? {}),
+          [posFilter!]: t,
+        },
+      };
+    } else {
+      return { ...p, tier: t };
+    }
+  };
 
   // Find the last player with a valid tier > 0 to seed our minTier
   let minTier = 999;
   for (let i = result.length - 1; i >= 0; i--) {
-    if (result[i].tier > 0) {
-      minTier = result[i].tier;
+    const t = getTier(result[i]);
+    if (t > 0) {
+      minTier = t;
       break;
     }
   }
 
   // Backward pass: enforce tier monotonicity for valid tiers
   for (let i = result.length - 1; i >= 0; i--) {
-    const current = result[i].tier;
+    const current = getTier(result[i]);
     if (current > 0) {
       if (current > minTier) {
-        result[i] = { ...result[i], tier: minTier };
+        result[i] = setTier(result[i], minTier);
       } else {
         minTier = current;
       }
