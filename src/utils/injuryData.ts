@@ -1,4 +1,4 @@
-import injuryCsvRaw from '@/data/injurydata.csv?raw';
+import injuryCsvRaw from '@/data/player_injury.csv?raw';
 import { matchKey } from '@/utils/playerNames';
 
 export interface InjuryDetail {
