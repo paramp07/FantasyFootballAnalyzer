@@ -110,7 +110,7 @@ export function NflTeams({ room, selectedId, onSelect }: NflTeamsProps) {
                           playClick();
                           onSelect(p);
                         }}
-                        title={gone ? undefined : `Select ${p.name} for the pick logger`}
+                        aria-label={`Select ${p.name}`}
                       >
                         <span
                           className={`${styles.playerPos} ${styles[`pos${p.pos}`] ?? ''}`}

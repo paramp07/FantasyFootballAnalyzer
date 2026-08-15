@@ -48,7 +48,7 @@ export function NominationPanel({ room, onSelect }: NominationPanelProps) {
                 playClick();
                 onSelect(player);
               }}
-              title={`Select ${player.name} for the logger`}
+              aria-label={`Select ${player.name}`}
             >
               <span className={styles.suggestMain}>
                 <span className={styles.rowPos}>

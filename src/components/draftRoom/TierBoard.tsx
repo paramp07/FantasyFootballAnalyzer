@@ -124,7 +124,7 @@ export function TierBoard({ room, selectedId, onSelect }: TierBoardProps) {
                     playClick();
                     onSelect(p);
                   }}
-                  title={`Select ${p.name} for the pick logger`}
+                  aria-label={`Select ${p.name}`}
                 >
                   <span className={styles.playerName}>{p.name}</span>
                   <span className={styles.playerMeta}>

@@ -68,7 +68,7 @@ export function QueuePanel({ room, queue, onSelect }: QueuePanelProps) {
                   playClick();
                   onSelect(p);
                 }}
-                title={`Select ${p.name} for the pick logger`}
+                aria-label={`Select ${p.name}`}
               >
                 <span className={panels.rowPos}>
                   {p.pos}

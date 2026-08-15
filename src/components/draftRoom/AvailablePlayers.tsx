@@ -624,7 +624,7 @@ export function AvailablePlayers({
                     onSelect(p);
                   }
                 }}
-                title={`Select ${p.name} for the pick logger`}
+                aria-label={`Select ${p.name}`}
               >
                 {onQuickDraft && (
                   <td className={styles.quickCell}>
