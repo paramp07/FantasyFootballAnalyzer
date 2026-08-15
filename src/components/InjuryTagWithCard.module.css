@@ -37,11 +37,8 @@
 }
 
 .card {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: 0.35rem;
-  z-index: 1000;
+  position: fixed;
+  z-index: 99999;
   width: 380px;
   max-width: 90vw;
   height: auto;
@@ -54,9 +51,16 @@
   cursor: default;
   box-shadow: 5px 5px 0 0 var(--ink-3);
   pointer-events: none;
-  animation: fadeIn 0.15s ease-out forwards;
   box-sizing: border-box;
   font-style: normal;
+}
+
+.cardTop {
+  animation: fadeInTop 0.15s ease-out forwards;
+}
+
+.cardBottom {
+  animation: fadeInBottom 0.15s ease-out forwards;
 }
 
 .cardHeader {
@@ -177,10 +181,21 @@
   white-space: normal;
 }
 
-@keyframes fadeIn {
+@keyframes fadeInTop {
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInBottom {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;

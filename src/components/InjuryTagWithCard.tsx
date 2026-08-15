@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { injuryAbbrev, injuryIsSevere, injuryTitle } from '@/utils/injury';
 import { getInjuryDetail, type InjuryDetail } from '@/utils/injuryData';
 import styles from './InjuryTagWithCard.module.css';
@@ -27,6 +28,9 @@ const CONCERN_COLORS: Record<'low' | 'mild' | 'medium' | 'high', string> = {
 
 export const InjuryTagWithCard: React.FC<InjuryTagWithCardProps> = ({ player, className }) => {
   const [showHoverCard, setShowHoverCard] = useState(false);
+  const [cardPos, setCardPos] = useState<{ left: number; top?: number; bottom?: number; placement: 'top' | 'bottom' } | null>(null);
+  const tagRef = useRef<HTMLSpanElement>(null);
+
   const detail: InjuryDetail | undefined = getInjuryDetail(player);
 
   const status = player.injuryStatus || (detail ? 'Questionable' : null);
@@ -42,11 +46,40 @@ export const InjuryTagWithCard: React.FC<InjuryTagWithCardProps> = ({ player, cl
   const reinjuryRate = detail?.reinjuryRate || 'Low';
   const notes = detail?.doctorNotes || detail?.additionalDetails || player.injuryNotes || 'Monitoring status for team practices.';
 
+  const handleMouseEnter = () => {
+    if (tagRef.current) {
+      const rect = tagRef.current.getBoundingClientRect();
+      // Estimated height of card ~ 320px
+      const spaceAbove = rect.top;
+      const placement = spaceAbove < 330 ? 'bottom' : 'top';
+
+      if (placement === 'top') {
+        setCardPos({
+          left: Math.max(10, Math.min(rect.left, window.innerWidth - 390)),
+          bottom: window.innerHeight - rect.top + 6,
+          placement: 'top',
+        });
+      } else {
+        setCardPos({
+          left: Math.max(10, Math.min(rect.left, window.innerWidth - 390)),
+          top: rect.bottom + 6,
+          placement: 'bottom',
+        });
+      }
+    }
+    setShowHoverCard(true);
+  };
+
+  const handleMouseLeave = () => {
+    setShowHoverCard(false);
+  };
+
   return (
     <span
+      ref={tagRef}
       className={`${styles.container} ${className || ''}`}
-      onMouseEnter={() => setShowHoverCard(true)}
-      onMouseLeave={() => setShowHoverCard(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <span
         className={`${styles.tag} ${isSevere ? styles.tagSevere : ''}`}
@@ -55,8 +88,16 @@ export const InjuryTagWithCard: React.FC<InjuryTagWithCardProps> = ({ player, cl
         {abbrev}
       </span>
 
-      {showHoverCard && (
-        <div className={styles.card} style={{ borderColor: concernColor }}>
+      {showHoverCard && cardPos && typeof document !== 'undefined' && ReactDOM.createPortal(
+        <div
+          className={`${styles.card} ${cardPos.placement === 'bottom' ? styles.cardBottom : styles.cardTop}`}
+          style={{
+            left: `${cardPos.left}px`,
+            top: cardPos.top !== undefined ? `${cardPos.top}px` : undefined,
+            bottom: cardPos.bottom !== undefined ? `${cardPos.bottom}px` : undefined,
+            borderColor: concernColor,
+          }}
+        >
           {/* Header */}
           <div className={styles.cardHeader}>
             <div className={styles.iconBox}>
@@ -108,7 +149,8 @@ export const InjuryTagWithCard: React.FC<InjuryTagWithCardProps> = ({ player, cl
             <span className={styles.notesLabel}>NOTES</span>
             <p className={styles.notesText}>{notes}</p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </span>
   );
