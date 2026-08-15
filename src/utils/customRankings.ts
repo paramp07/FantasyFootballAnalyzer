@@ -7,6 +7,22 @@ export interface CustomRanking {
   pos?: string;
   id?: string;
   tier?: number;
+  team?: string;
+}
+
+function parseAbbreviatedName(name: string): { firstInitial: string; lastName: string } | null {
+  const clean = name.trim().replace(/[.'’]/g, '');
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const firstInitial = parts[0][0].toLowerCase();
+    let lastName = parts[parts.length - 1].toLowerCase();
+    const suffixes = new Set(['jr', 'sr', 'ii', 'iii', 'iv', 'v']);
+    if (suffixes.has(lastName) && parts.length >= 3) {
+      lastName = parts[parts.length - 2].toLowerCase();
+    }
+    return { firstInitial, lastName };
+  }
+  return null;
 }
 
 export const TEMPLATE_RANKINGS_CSV = `Overall,Player,Position,Team,Bye,Tier,Pos Rank,ADP
@@ -69,6 +85,7 @@ export function validateCustomRankings(csvString: string): {
     const posIdx = headers.findIndex(h => /^(position|pos)$/i.test(h));
     const tierIdx = headers.findIndex(h => /^tier$/i.test(h));
     const idIdx = headers.findIndex(h => /^id$/i.test(h));
+    const teamIdx = headers.findIndex(h => /^team$/i.test(h));
 
     if (rankIdx === -1 || nameIdx === -1) {
       return {
@@ -116,6 +133,11 @@ export function validateCustomRankings(csvString: string): {
       // Optional position
       if (posIdx !== -1 && cells[posIdx]) {
         rankingItem.pos = cells[posIdx].trim().toUpperCase();
+      }
+
+      // Optional Team
+      if (teamIdx !== -1 && cells[teamIdx]) {
+        rankingItem.team = cells[teamIdx].trim();
       }
 
       // Optional ID
@@ -190,6 +212,58 @@ export function applyCustomRankingsToPool(
       const candidates = poolByName.get(key) || [];
       if (candidates.length > 0) {
         matched = matchPlayer({ name: cr.name, pos: cr.pos }, candidates);
+      }
+    }
+
+    if (!matched) {
+      // 3. Fallback to initial-based matching (e.g. "J. Gibbs")
+      const parsedQuery = parseAbbreviatedName(cr.name);
+      if (parsedQuery) {
+        let fallbackCandidates = players.filter(p => {
+          const parsedPool = parseAbbreviatedName(p.name);
+          return (
+            parsedPool &&
+            parsedPool.firstInitial === parsedQuery.firstInitial &&
+            parsedPool.lastName === parsedQuery.lastName
+          );
+        });
+
+        // Filter by position if provided
+        if (cr.pos && fallbackCandidates.length > 0) {
+          const queryPos = cr.pos.toUpperCase().replace(/\//g, '').replace(/\d+$/, '');
+          fallbackCandidates = fallbackCandidates.filter(c => c.pos && c.pos.toUpperCase().replace(/\//g, '').replace(/\d+$/, '') === queryPos);
+        }
+
+        if (fallbackCandidates.length === 1) {
+          matched = fallbackCandidates[0];
+        } else if (fallbackCandidates.length > 1) {
+          // If we have a query team, try to match by team first
+          if (cr.team) {
+            const queryTeam = cr.team.toUpperCase().trim();
+            const aliases: Record<string, string> = { JAX: 'JAC', WSH: 'WAS', LA: 'LAR', STL: 'LAR', SD: 'LAC', OAK: 'LV', LVR: 'LV', GBP: 'GB', KCC: 'KC', NOS: 'NO', NEP: 'NE', SFO: 'SF', TBB: 'TB' };
+            const canonicalQueryTeam = aliases[queryTeam] ?? queryTeam;
+            const teamMatches = fallbackCandidates.filter(c => {
+              const cTeam = (c.team ?? '').toUpperCase().trim();
+              const canonicalCTeam = aliases[cTeam] ?? cTeam;
+              return canonicalCTeam === canonicalQueryTeam;
+            });
+            if (teamMatches.length === 1) {
+              matched = teamMatches[0];
+            } else if (teamMatches.length > 1) {
+              fallbackCandidates = teamMatches; // refine to team matches
+            }
+          }
+
+          // If still unresolved, pick the one with overallRank closest to custom rank
+          if (!matched && fallbackCandidates.length > 0) {
+            fallbackCandidates.sort((a, b) => {
+              const diffA = Math.abs(a.overallRank - cr.rank);
+              const diffB = Math.abs(b.overallRank - cr.rank);
+              return diffA - diffB;
+            });
+            matched = fallbackCandidates[0];
+          }
+        }
       }
     }
 

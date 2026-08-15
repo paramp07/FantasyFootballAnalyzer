@@ -19,8 +19,8 @@ describe('validateCustomRankings', () => {
     expect(res.valid).toBe(true);
     expect(res.errors).toHaveLength(0);
     expect(res.rankings).toHaveLength(5);
-    expect(res.rankings![0]).toEqual({ name: "Ja'Marr Chase", rank: 1, pos: 'WR', tier: 1 });
-    expect(res.rankings![2]).toEqual({ name: 'Josh Allen', rank: 3, pos: 'QB', tier: 1 });
+    expect(res.rankings![0]).toEqual({ name: "Ja'Marr Chase", rank: 1, pos: 'WR', tier: 1, team: 'CIN' });
+    expect(res.rankings![2]).toEqual({ name: 'Josh Allen', rank: 3, pos: 'QB', tier: 1, team: 'BUF' });
   });
 
   it('should catch empty strings', () => {
@@ -170,6 +170,27 @@ describe('applyCustomRankingsToPool', () => {
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('Could not match custom ranked player');
     expect(matchedCount).toBe(0);
+  });
+
+  it('should fallback to matching by first name initial and last name with team/rank tiebreakers', () => {
+    const custom: CustomRanking[] = [
+      { name: 'J. Gibbs', rank: 2 }, // Matches Jahmyr Gibbs
+      { name: 'B. Robinson', rank: 1, team: 'ATL' }, // Matches Bijan Robinson over Brian Robinson Jr
+      { name: 'B. Robinson', rank: 3, team: 'WAS' }, // Matches Brian Robinson Jr over Bijan Robinson
+    ];
+
+    const poolWithRobinsons: PoolPlayer[] = [
+      { id: 'gibbs', name: 'Jahmyr Gibbs', team: 'DET', pos: 'RB', overallRank: 5, overallRankSF: 5, tier: 1, posRank: 3 },
+      { id: 'bijan', name: 'Bijan Robinson', team: 'ATL', pos: 'RB', overallRank: 2, overallRankSF: 2, tier: 1, posRank: 1 },
+      { id: 'brian', name: 'Brian Robinson Jr.', team: 'WAS', pos: 'RB', overallRank: 30, overallRankSF: 30, tier: 3, posRank: 15 },
+    ];
+
+    const { updatedPlayers, warnings } = applyCustomRankingsToPool(poolWithRobinsons, custom);
+    expect(warnings).toHaveLength(0);
+
+    expect(updatedPlayers[0].id).toBe('bijan');
+    expect(updatedPlayers[1].id).toBe('gibbs');
+    expect(updatedPlayers[2].id).toBe('brian');
   });
 
   describe('cleanTiers', () => {
