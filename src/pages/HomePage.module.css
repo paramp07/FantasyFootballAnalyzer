@@ -252,12 +252,140 @@
 }
 .manifestoLink:hover { color: var(--lime); }
 
+/* ── LIVE DRAFT QUICK LAUNCH ── */
+.liveDraftCard {
+  background: var(--ink-2);
+  border: 2px solid var(--bone);
+  border-left: 6px solid var(--lime);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  box-shadow: 5px 5px 0 var(--bone);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.liveDraftHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.liveDraftDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 8px var(--lime);
+}
+
+.liveDraftTitle {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--bone);
+}
+
+.liveDraftBlurb {
+  margin: 0;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.88rem;
+  color: var(--bone-dim);
+}
+
+.liveDraftButton {
+  background: var(--lime);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 0.65rem 1.2rem;
+  border: 2px solid var(--lime);
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--ink);
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.liveDraftButton:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.livePickFeed {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--rule);
+}
+
+.livePickFeedTitle {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--lime);
+  margin-bottom: 0.4rem;
+}
+
+.livePickFeedList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.livePickFeedItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--ink);
+  border: 1px solid var(--rule);
+  padding: 0.35rem 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.livePickRank {
+  color: var(--lime);
+  font-weight: 700;
+}
+
+.livePickName {
+  color: var(--bone);
+  font-family: var(--font-display);
+}
+
+.livePickPos {
+  color: var(--bone-dim);
+  font-size: 0.7rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--rule);
+  background: var(--ink-3);
+}
+
+.livePickPrice {
+  margin-left: auto;
+  color: var(--lime);
+  font-weight: 700;
+}
+
+
 /* ── FORM (Issue insert) ── */
 .formContainer {
   max-width: 720px;
   margin: 0 auto 4rem;
   position: relative;
 }
+
 .formContainer::before {
   content: '▌ CONNECT · ENTRY POINT';
   display: block;

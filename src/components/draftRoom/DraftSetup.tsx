@@ -21,6 +21,8 @@ import {
   settingsFromConfig,
   type DraftPreset,
 } from '@/utils/draftPresets';
+import { getSavedPresets, getActivePresetId } from '@/utils/customRankings';
+import { applyActivePreset } from '@/data/draftPool';
 import styles from './DraftSetup.module.css';
 
 interface DraftSetupProps {
@@ -101,6 +103,8 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
   const [archive, setArchive] = useState(() => loadDraftArchive(leagueKeyFor(league)));
   const [presets, setPresets] = useState<DraftPreset[]>(() => loadPresets());
   const [presetName, setPresetName] = useState('');
+  const [rankingPresets, setRankingPresets] = useState(() => getSavedPresets());
+  const activePresetId = getActivePresetId();
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const sectionOpen = !isMobile;
 
@@ -363,25 +367,6 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
             : 'The board is ordered by dynasty value (whole-roster, not this-year-only). ADP and projection figures are still redraft, so lean on the dynasty order.'}
         </div>
       )}
-      {resumable && (
-        <div className={styles.resume}>
-          <div className={styles.resumeText}>
-            <span className={styles.resumeKicker}>Saved draft found</span>
-            <span className={styles.resumeDetail}>
-              {resumable.events.length} picks logged
-              {savedAt ? `, saved ${savedAt.toLocaleString()}` : ''}
-            </span>
-          </div>
-          <div className={styles.resumeActions}>
-            <button type="button" className={styles.btnPrimary} onClick={resume}>
-              Resume Draft
-            </button>
-            <button type="button" className={styles.btn} onClick={reset}>
-              Discard
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className={styles.columns}>
         <div className={styles.column}>
@@ -469,6 +454,7 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
                   <span className={styles.label}>Pick Order</span>
                   <div className={styles.toggle}>
                     {SNAKE_FORMAT_OPTIONS.map(opt => (
+
                       <button
                         key={opt.value}
                         type="button"
@@ -487,28 +473,61 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
                   </div>
                 </div>
               )}
+
+              <div className={styles.field} style={{ marginTop: '0.75rem' }}>
+                <span className={styles.label}>Draft Room Mode</span>
+
+                <div className={styles.toggle} style={{ width: '100%' }}>
+                  <button
+                    type="button"
+                    className={config.mode === 'live' ? styles.toggleOn : styles.toggleOff}
+                    aria-pressed={config.mode === 'live'}
+                    onClick={() => updateConfig({ mode: 'live' })}
+                    title="Live Draft Analysis: Picks arrive automatically via live sync; manual board edits are disabled."
+                    style={{ flex: 1, padding: '0.6rem 0.5rem' }}
+                  >
+                    ● Live Draft Analysis
+                  </button>
+                  <button
+                    type="button"
+                    className={config.mode === 'mock' ? styles.toggleOn : styles.toggleOff}
+                    aria-pressed={config.mode === 'mock'}
+                    onClick={() => updateConfig({ mode: 'mock' })}
+                    title="Mock / Manual Draft: Pick players manually or run AI mock simulations."
+                    style={{ flex: 1, padding: '0.6rem 0.5rem' }}
+                  >
+                    ⚡ Mock / Manual Draft
+                  </button>
+                </div>
+                <span className={styles.hint} style={{ marginTop: '0.4rem', display: 'block' }}>
+                  {config.mode === 'live'
+                    ? 'Live Mode: Picks stream in automatically from extension or Sleeper sync. Manual pick entry is disabled.'
+                    : 'Mock/Manual Mode: Manually log picks, use hotkeys (D), and test strategies with AI mock drafting.'}
+                </span>
+              </div>
+
+              <div className={styles.field} style={{ marginTop: '0.75rem' }}>
+                <span className={styles.label}>Rankings Preset</span>
+                <select
+                  className={styles.input}
+                  style={{ width: '100%', height: '40px', padding: '0.35rem 0.65rem', background: 'var(--ink)', border: '2px solid var(--rule)', color: 'var(--bone)', fontFamily: 'inherit' }}
+                  value={activePresetId || 'consensus'}
+                  onChange={e => {
+                    const val = e.target.value;
+                    const nextId = val === 'consensus' ? null : val;
+                    applyActivePreset(nextId);
+                    setRankingPresets(getSavedPresets());
+                  }}
+                >
+                  <option value="consensus">Consensus (Default)</option>
+                  {rankingPresets.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            {/* The mode choice, framed by what it does: auto-pick on is the
-                mock practice draft, off is the live follow-along where every
-                team's pick is logged by hand (with optional Sleeper sync on a
-                connected Sleeper league). Live logging needs no league data,
-                just team names, so guests get the choice too. */}
-            <label className={styles.keeperToggle}>
-              <input
-                type="checkbox"
-                checked={config.mode === 'mock'}
-                onChange={e => updateConfig({ mode: e.target.checked ? 'mock' : 'live' })}
-              />
-              Auto-pick the other teams (mock draft)
-            </label>
-            <p className={styles.hint}>
-              {config.mode === 'mock'
-                ? 'The other teams draft automatically so you can practice.'
-                : league.platform === 'sleeper' && !league.isGuest
-                  ? 'Follow along with your real draft: log every pick and price by hand, or turn on Live Sync in the room to pull Sleeper picks automatically.'
-                  : `Follow along with your real draft: log every team's pick and price as it happens in your league's draft window.${league.isGuest ? ' Set the real team names under Teams.' : ''}`}
-            </p>
             {config.mode === 'mock' && config.draftType === 'auction' && (
+
               <label className={styles.keeperToggle}>
                 <input
                   type="checkbox"
@@ -853,6 +872,26 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
         </CollapsibleSection>
       )}
 
+      {resumable && (
+        <div className={styles.resume} style={{ marginBottom: '1.5rem' }}>
+          <div className={styles.resumeText}>
+            <span className={styles.resumeKicker}>Saved draft found</span>
+            <span className={styles.resumeDetail}>
+              {resumable.events.length} picks logged
+              {savedAt ? `, saved ${savedAt.toLocaleString()}` : ''}
+            </span>
+          </div>
+          <div className={styles.resumeActions}>
+            <button type="button" className={styles.btnPrimary} onClick={resume}>
+              Resume Draft
+            </button>
+            <button type="button" className={styles.btn} onClick={reset}>
+              Discard
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className={styles.startRow}>
         <div className={styles.summary} title="What you're about to start">
           {summary}
@@ -863,7 +902,7 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
           onClick={start}
           disabled={startBlocked !== null}
         >
-          Start {config.mode === 'mock' ? 'Mock ' : ''}Draft
+          {config.mode === 'live' ? 'Start Analysis' : 'Start Mock Draft'}
         </button>
         {startBlocked && <p className={styles.hint}>{startBlocked}</p>}
       </div>

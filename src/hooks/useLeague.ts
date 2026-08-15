@@ -184,20 +184,11 @@ export function useLeague(): UseLeagueReturn {
       // Only update state if this is still the current request and component is mounted
       if (isMountedRef.current && requestId === currentRequestRef.current) {
         logger.error('[useLeague] Error loading league:', err);
-        if (isBackgroundRefresh) {
-          // Silent failure: keep the stale data visible rather than wiping it
-          // for an error banner.
-          return hydrated;
-        }
+
         // The form defaults the ESPN season to the calendar year, but the
         // league may not be rolled over to it yet. When the current year
         // 404s, retry last season instead of erroring on a year the user
-        // never really chose. Explicit past-year picks differ from the
-        // calendar year, so they never fall back; nor can the retried year
-        // re-trigger this. Keyed on the HTTP status, not error text: the
-        // proxy passes upstream messages through verbatim, and one that
-        // merely mentions "not found" must not be misread as a missing
-        // season.
+        // never really chose.
         if (
           credentials.platform === 'espn' &&
           credentials.season === new Date().getFullYear() &&
@@ -211,6 +202,13 @@ export function useLeague(): UseLeagueReturn {
           );
           return loadImpl({ ...credentials, season: fallbackSeason }, { ...options, isFallbackRetry: true });
         }
+
+        if (isBackgroundRefresh) {
+          // Silent failure: keep the stale data visible rather than wiping it
+          // for an error banner.
+          return hydrated;
+        }
+
         Analytics.connectError(credentials.platform, connectErrorTypeFor(err, credentials.platform));
         let message = 'Failed to load league. Please try again.';
 

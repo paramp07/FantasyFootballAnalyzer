@@ -99,11 +99,12 @@ async function fetchESPN<T>(
       }
       const errorData = await response.json().catch(() => ({}));
       logger.error('[ESPN] Proxy error:', errorData);
-      throw new ESPNAPIError(
-        errorData.error || `ESPN API error: ${response.status}`,
-        response.status,
-      );
+      const msg = errorData.error
+        ? `${errorData.error} (${response.status})`
+        : `ESPN API error: ${response.status}`;
+      throw new ESPNAPIError(msg, response.status);
     }
+
 
     return response.json();
   }

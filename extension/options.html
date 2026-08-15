@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>FFA - Helper — settings</title>
+  <style>
+    body { font-family: ui-monospace, monospace; background: #0b130e; color: #e8ede6; padding: 24px; max-width: 500px; }
+    h1 { font-size: 16px; letter-spacing: 2px; text-transform: uppercase; color: #d6ff2e; margin-bottom: 20px; }
+    label { display: block; margin-top: 16px; font-size: 12px; color: #8aa196; }
+    input { width: 100%; padding: 8px; margin-top: 6px; background: #060a08; color: #e8ede6; border: 1px solid #1a2a20; border-radius: 4px; font-family: inherit; box-sizing: border-box; }
+    button { margin-top: 20px; padding: 8px 20px; background: #d6ff2e; color: #0b130e; border: 0; border-radius: 4px; font-weight: 800; text-transform: uppercase; cursor: pointer; }
+    .note { margin-top: 20px; font-size: 11px; line-height: 1.5; color: #8aa196; }
+    .ok { color: #d6ff2e; margin-left: 12px; font-size: 12px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1>FFA - Helper — settings</h1>
+  <label>App URL (where "Open Draft Analysis" goes)
+    <input id="appUrl" placeholder="http://localhost:5173" />
+  </label>
+  <button id="save">Save</button><span id="saved" class="ok" hidden>saved ✓</span>
+  <p class="note">
+    Default app URL is <code>http://localhost:5173</code> for local development.
+  </p>
+  <script src="options.js"></script>
+</body>
+</html>

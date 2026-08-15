@@ -28,7 +28,7 @@ export interface GuestSettings {
 export const GUEST_LEAGUE_ID = 'guest';
 
 export const DEFAULT_GUEST_SETTINGS: GuestSettings = {
-  scoringType: 'half_ppr',
+  scoringType: 'ppr',
   draftType: 'snake',
   totalTeams: 12,
   hasSuperflex: false,

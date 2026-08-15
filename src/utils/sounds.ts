@@ -139,6 +139,16 @@ export function playError(): void {
   ]);
 }
 
+// Two rapid error sounds triggered when autodraft is active
+export function playDoubleError(): void {
+  playPhrase([
+    { freq: 392, dur: 0.16, type: 'triangle', level: 0.55, release: 0.12 },
+    { freq: 311, at: 0.14, dur: 0.22, type: 'triangle', level: 0.55, release: 0.16 },
+    { freq: 392, at: 0.26, dur: 0.16, type: 'triangle', level: 0.55, release: 0.12 },
+    { freq: 311, at: 0.40, dur: 0.22, type: 'triangle', level: 0.55, release: 0.16 },
+  ]);
+}
+
 // Grade reveal sounds
 export function playGradeGreat(): void {
   playPhrase([

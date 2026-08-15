@@ -112,6 +112,20 @@ export function AvailablePlayers({
     }
     return new Set([...counts.entries()].filter(([, n]) => n >= 2).map(([week]) => week));
   }, [derived.teams, config.myTeamId]);
+
+  const onTheClockByeWeeks = useMemo(() => {
+    const currentTeamId = room.derived.onTheClockId || config.myTeamId;
+    const team = derived.teams.get(currentTeamId);
+    if (!team) return new Set<number>();
+    const byes = new Set<number>();
+    for (const p of team.picks) {
+      if (p.player.bye !== null) {
+        byes.add(p.player.bye);
+      }
+    }
+    return byes;
+  }, [derived.teams, room.derived.onTheClockId, config.myTeamId]);
+
   const superflex = config.rosterSlots.SUPERFLEX > 0;
   const adp = useCallback(
     (p: PoolPlayer) => marketAdp(p, scoring, superflex),
@@ -412,6 +426,11 @@ export function AvailablePlayers({
                           {injuryAbbrev(p.injuryStatus)}
                         </span>
                       )}
+                      {p.bye !== null && onTheClockByeWeeks.has(p.bye) && (
+                        <span className={styles.byeConflictTag} title={`Bye week conflict: another player on this team has Bye ${p.bye}`}>
+                          B
+                        </span>
+                      )}
                     </span>
                     <span className={styles.mSub}>
                       {p.pos}
@@ -683,6 +702,11 @@ export function AvailablePlayers({
                   {p.injuryStatus && (
                     <span className={styles.injuryTag} title={injuryTitle(p)}>
                       {injuryAbbrev(p.injuryStatus)}
+                    </span>
+                  )}
+                  {p.bye !== null && onTheClockByeWeeks.has(p.bye) && (
+                    <span className={styles.byeConflictTag} title={`Bye week conflict: another player on this team has Bye ${p.bye}`}>
+                      B
                     </span>
                   )}
                   {tierBreaks(p) && <span className={styles.tierBreak}>LAST IN TIER</span>}

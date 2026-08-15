@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import type { League } from '@/types';
 import type { PoolPlayer } from '@/types/draft';
 import { useDraftQueue } from '@/hooks/useDraftQueue';
@@ -33,21 +33,45 @@ import { TierBoard } from '@/components/draftRoom/TierBoard';
 import { detectRun } from '@/utils/draftAlerts';
 import { allKeepers, fullPositions, lineupRows, reservedKeepersFor } from '@/utils/draftEngine';
 import { vibrate } from '@/utils/haptics';
+import { getSavedPresets, getActivePresetId } from '@/utils/customRankings';
+import { applyActivePreset } from '@/data/draftPool';
 import { picksUntilMine } from '@/utils/pickPreview';
 import { nextPickFor } from '@/utils/snakeOrder';
 import styles from './DraftRoomPage.module.css';
 
-// Elapsed time since the last logged pick, ticking once a second. Helps
-// pace a live room ("we've been on this nomination for two minutes").
-function PickTimer({ lastEventTs }: { lastEventTs: number | null }) {
+// Elapsed time since the last logged pick (or countdown if live sync is active).
+function PickTimer({
+  lastEventTs,
+  liveSync,
+}: {
+  lastEventTs: number | null;
+  liveSync: {
+    enabled: boolean;
+    clockSeconds: number | null;
+    clockSecondsReceivedAt: number;
+  };
+}) {
   const [, force] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => force(n => n + 1), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  if (liveSync.enabled && liveSync.clockSeconds !== null) {
+    const elapsed = Math.floor((Date.now() - liveSync.clockSecondsReceivedAt) / 1000);
+    const secs = Math.max(0, liveSync.clockSeconds - elapsed);
+    const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+    const ss = String(secs % 60).padStart(2, '0');
+    return (
+      <span title="Time remaining on the live draft clock (synced)">
+        ⏱ {mm}:{ss}
+      </span>
+    );
+  }
+
   if (lastEventTs === null) return null;
   const secs = Math.max(0, Math.floor((Date.now() - lastEventTs) / 1000));
-  const mm = Math.floor(secs / 60);
+  const mm = String(Math.floor(secs / 60)).padStart(2, '0');
   const ss = String(secs % 60).padStart(2, '0');
   return (
     <span title="Time since the last logged pick">
@@ -99,12 +123,58 @@ interface DraftRoomPageProps {
 }
 
 export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
+  const location = useLocation();
   const room = useDraftRoom(league);
   const [showConnectedBanner, setShowConnectedBanner] = useState(!!justConnected);
   const queue = useDraftQueue(room.config.leagueKey);
   const sim = useDraftSim(room, { myQueue: queue.ids });
   const yahoo = useYahooValues(room.pool);
   const liveSync = useLiveDraftSync(league, room);
+  const [showInactivityModal, setShowInactivityModal] = useState(false);
+  const [rankingPresets] = useState(() => getSavedPresets());
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const activePresetId = getActivePresetId();
+  const lastDismissedPickCount = useRef(-1);
+
+  if (import.meta.env.DEV) {
+    console.log('[DraftRoomPage] Active preset or trigger updated:', activePresetId, refreshTrigger);
+  }
+
+  useEffect(() => {
+    if (room.phase !== 'drafting' || room.derived.pickCount === 0 || room.config.mode !== 'live') {
+      setShowInactivityModal(false);
+      return;
+    }
+
+    const isAtTurn = room.derived.pickCount % room.config.teams.length === 0;
+    if (!isAtTurn) {
+      setShowInactivityModal(false);
+      return;
+    }
+
+    if (lastDismissedPickCount.current === room.derived.pickCount) {
+      setShowInactivityModal(false);
+      return;
+    }
+
+    const checkInactivity = () => {
+      const lastEventTs = room.events.length > 0 ? room.events[room.events.length - 1].ts : null;
+      if (lastEventTs === null) return;
+      const elapsed = Date.now() - lastEventTs;
+      if (elapsed >= 120_000) {
+        setShowInactivityModal(true);
+      }
+    };
+
+    checkInactivity();
+    const interval = setInterval(checkInactivity, 1000);
+    return () => clearInterval(interval);
+  }, [room.phase, room.derived.pickCount, room.events, room.config.teams.length, room.config.mode]);
+
+  const handleKeepDrafting = () => {
+    lastDismissedPickCount.current = room.derived.pickCount;
+    setShowInactivityModal(false);
+  };
   // Suggested picks + handcuffs highlight inline on the player board.
   const { suggested, handcuffFor } = useSuggestedPicks(
     room,
@@ -131,8 +201,21 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
   // A transient flourish when one of your own picks is a clear value.
   const [spark, setSpark] = useState<string | null>(null);
   const lastSparkSeqRef = useRef(-1);
-
   const { phase, config, derived, undo, reset } = room;
+
+  const hasHeartbeat = Boolean(
+    liveSync.lastHeartbeat && Date.now() - liveSync.lastHeartbeat < 7000,
+  );
+
+
+  // Auto-start the draft board if navigated via "Open Live Draft" banner or autoStart state
+  useEffect(() => {
+    if (phase === 'setup' && (location.state as { autoStart?: boolean })?.autoStart) {
+      room.start();
+    }
+  }, [phase, location.state, room]);
+
+
 
   // Phone + live draft = focus mode. The class drives the one piece of
   // chrome this page doesn't own (the app-level guest banner); everything
@@ -375,13 +458,14 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
     return parts.join(' ');
   }, [phase, room.events, playerById, config.teams, config.draftType, myTurn]);
   // Quick drafting: log a player straight to the on-the-clock team. Only for
-  // snake drafts, and in mock mode only when it's actually the user's pick
-  // (the AI handles the rest).
+  // mock snake drafts (in live sync mode, manual edits are disabled so picks stay in sync).
   const canQuickDraft =
     phase === 'drafting' &&
     isSnake &&
+    config.mode === 'mock' &&
     derived.onTheClockId !== null &&
-    (config.mode === 'live' || derived.onTheClockId === config.myTeamId);
+    derived.onTheClockId === config.myTeamId;
+
 
   const quickDraft = (player: PoolPlayer) => {
     if (!canQuickDraft || !derived.onTheClockId) return;
@@ -460,8 +544,8 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
       room={room}
       selectedId={selected?.id ?? null}
       onSelect={setSelected}
-      onQuickDraft={phase === 'drafting' && isSnake ? quickDraft : undefined}
-      quickDraftActive={canQuickDraft}
+      onQuickDraft={phase === 'drafting' && isSnake && config.mode === 'mock' ? quickDraft : undefined}
+      quickDraftActive={canQuickDraft && config.mode === 'mock'}
       excludedPositions={isSnake && isMock ? myFullPositions : undefined}
       clockFullPositions={clockFullPositions}
       yahooCosts={yahoo.costs}
@@ -572,9 +656,51 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
                   (name ellipsizes, alert keeps a slot) so the board below
                   stops jumping as names and badges come and go. */}
               <div className={styles.statusPrimary}>
+                <span
+                  className={styles.statusItem}
+                  style={{
+                    fontWeight: 'bold',
+                    color: config.mode === 'live' ? (hasHeartbeat ? '#00e699' : '#ffcf3a') : '#d6ff2e',
+                  }}
+                >
+                  {config.mode === 'live'
+                    ? hasHeartbeat
+                      ? '● LIVE SYNC ACTIVE'
+                      : '● LIVE ANALYSIS'
+                    : '⚡ MOCK DRAFT'}
+                </span>
+
                 <span className={styles.statusItem}>
                   Pick {Math.min(derived.pickCount + 1, derived.totalPicks)}/{derived.totalPicks}
                 </span>
+
+                <label className={styles.statusItem} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span className={styles.statusSecondary}>Preset:</span>
+                  <select
+                    value={activePresetId || 'consensus'}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const nextId = val === 'consensus' ? null : val;
+                      applyActivePreset(nextId);
+                      setRefreshTrigger(prev => prev + 1);
+                    }}
+                    style={{
+                      background: 'var(--ink-2, #1a1a1a)',
+                      border: '1px solid var(--rule, #333)',
+                      color: 'var(--bone, #f5f5f5)',
+                      padding: '0.1rem 0.35rem',
+                      fontFamily: 'inherit',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="consensus">Consensus (Default)</option>
+                    {rankingPresets.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </label>
+
                 {derived.onTheClockId && (
                   <span className={`${styles.statusItem} ${styles.statusClock}`}>
                     {myTurn ? (
@@ -655,7 +781,7 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
               )}
               {phase === 'drafting' && (
                 <span className={`${styles.statusItem} ${styles.statusSecondary}`}>
-                  <PickTimer lastEventTs={lastEventTs} />
+                  <PickTimer lastEventTs={lastEventTs} liveSync={liveSync} />
                 </span>
               )}
               {/* Last in the info group: the chip comes and goes with the
@@ -968,6 +1094,37 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
           </>
         )}
       </div>
+
+      {showInactivityModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3 className={styles.modalTitle}>Is your draft complete?</h3>
+            <p className={styles.modalText}>
+              It looks like the draft might be over (no new picks for 2 minutes and the last pick was at the turn). Would you like to end the draft and save the results?
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                onClick={() => {
+                  room.endDraft();
+                  setShowInactivityModal(false);
+                }}
+              >
+                End Draft
+              </button>
+              <button
+                type="button"
+                className={styles.btn}
+                style={{ border: '2px solid var(--bone-dim)', background: 'transparent', cursor: 'pointer' }}
+                onClick={handleKeepDrafting}
+              >
+                Keep Drafting
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

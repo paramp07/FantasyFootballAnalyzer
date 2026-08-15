@@ -14,7 +14,7 @@ const KEY_PREFIX = 'ffa:draftroom:v' + CACHE_VERSION + ':';
 export interface DraftRoomSession {
   config: DraftRoomConfig;
   events: DraftEvent[];
-  phase: 'drafting' | 'complete';
+  phase: 'setup' | 'drafting' | 'complete';
   savedAt: number;
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { POOL } from '@/data/draftPool';
-import type { League, RosterSlots } from '@/types';
+import type { League, RosterSlots, ScoringType } from '@/types';
 import type {
   DraftEvent,
   DraftEventInput,
@@ -21,13 +21,14 @@ import {
 } from '@/utils/draftRoomCache';
 import { computeInflation, NEUTRAL_INFLATION, type InflationState } from '@/utils/inflation';
 import { loadLastConnection } from '@/utils/lastConnection';
-import type { ScoringType } from '@/utils/valueScaling';
 import { draftValues, vorConfigFor } from '@/utils/projectionValues';
+import { loadCachedLeague, cacheLeague } from '@/utils/leagueCache';
+import { liveDraftToTeams } from '@/utils/liveDraftToTeams';
 
 // Used when the platform didn't expose roster settings (Yahoo default shape).
 // Shared with the Rankings page so both surfaces price the pool identically.
 export const DEFAULT_ROSTER_SLOTS: RosterSlots = {
-  QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, SUPERFLEX: 0, K: 1, DST: 1, BENCH: 6, IR: 1,
+  QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, SUPERFLEX: 0, K: 1, DST: 1, BENCH: 6, IR: 0,
 };
 
 export const DEFAULT_BUDGET = 200;
@@ -50,6 +51,7 @@ type Action =
   | { type: 'LOG_EVENT'; event: DraftEvent }
   | { type: 'UNDO' }
   | { type: 'RESET' }
+  | { type: 'END_DRAFT' }
   | { type: 'RESUME'; session: DraftRoomSession; readOnly?: boolean };
 
 // Draft sessions are keyed (and labeled) by the POOL season, not the loaded
@@ -101,7 +103,7 @@ function configFromLeague(league: League): DraftRoomConfig {
     teams,
     myTeamId: myLeagueTeam?.id ?? teams[0]?.id ?? '',
     rosterSlots,
-    scoring: league.scoringType,
+    scoring: league.scoringType || 'ppr',
     // Auto-detected TE premium (Sleeper bonus_rec_te); the setup toggle
     // remains the override.
     tePremium: (league.tePremiumPerReception ?? 0) > 0 ? true : undefined,
@@ -111,7 +113,7 @@ function configFromLeague(league: League): DraftRoomConfig {
     // still editable in setup.
     budget: league.auctionBudget ?? DEFAULT_BUDGET,
     rounds: draftableSlotCount(rosterSlots),
-    mode: 'mock',
+    mode: 'live',
     // Default mock auctions to live bidding: bids are called one at a time so
     // the running price is always visible and you can rebid or pass after
     // being outbid, instead of sealing one max and watching it resolve.
@@ -213,6 +215,18 @@ function reducer(state: DraftRoomState, action: Action): DraftRoomState {
       if (cut === 0) return state;
       return { ...state, events: state.events.slice(0, cut - 1), phase: 'drafting' };
     }
+    case 'END_DRAFT': {
+      if (state.phase !== 'drafting') return state;
+      const completedRounds = Math.max(1, Math.ceil(state.events.length / state.config.teams.length));
+      return {
+        ...state,
+        phase: 'complete',
+        config: {
+          ...state.config,
+          rounds: completedRounds,
+        },
+      };
+    }
     case 'RESET':
       return {
         phase: 'setup',
@@ -257,6 +271,7 @@ export interface UseDraftRoomReturn {
   // returns the first rejection with its batch index, or null.
   logEvents: (events: DraftEventInput[]) => { index: number; error: string } | null;
   undo: () => void;
+  endDraft: () => void;
   reset: () => void;
   resume: () => void;
   // Load an archived (completed) session, e.g. to revisit its recap.
@@ -274,9 +289,6 @@ export function useDraftRoom(league: League): UseDraftRoomReturn {
   const [resumable, setResumable] = useState<DraftRoomSession | null>(() => {
     const session = loadDraftRoom(leagueKeyFor(league));
     if (!session) return null;
-    // A session whose picks reference ids the current pool doesn't know is
-    // from an older pool build (ids were rank-based before they were made
-    // stable). Resuming it would map picks to the wrong players.
     const known = new Set(POOL.players.map(p => p.id));
     const stale =
       session.events.some(e => !known.has(e.playerId)) ||
@@ -337,12 +349,62 @@ export function useDraftRoom(league: League): UseDraftRoomReturn {
     [state.config.draftType, derived, scaledValues],
   );
 
-  // Persist any in-progress or finished draft; setup-phase tweaking is not
-  // worth saving and would overwrite a resumable session.
+  // Persist draft session and setup config immediately on updates
   useEffect(() => {
-    if (state.phase === 'setup' || state.readOnly) return;
+    if (state.readOnly) return;
+    if (state.phase === 'setup') {
+      // Only save setup config if the user has customized it from the default league configuration
+      const isDefault = JSON.stringify(state.config) === JSON.stringify(configFromLeague(league));
+      if (isDefault) return;
+
+      const existing = loadDraftRoom(leagueKeyFor(league));
+      if (existing && existing.phase !== 'setup') {
+        // Do not overwrite an active drafting/completed session with setup config
+        return;
+      }
+    }
     saveDraftRoom({ config: state.config, events: state.events, phase: state.phase });
-  }, [state]);
+    if (state.phase === 'setup') {
+      setResumable({ config: state.config, events: state.events, phase: state.phase, savedAt: Date.now() });
+    } else {
+      setResumable(null);
+    }
+  }, [state, league]);
+
+  // Synchronize draft room picks/teams to the cached league in localStorage
+  useEffect(() => {
+    if (state.readOnly || state.phase === 'setup') return;
+
+    try {
+      const cachedLeague = loadCachedLeague(league.platform, league.id, league.season);
+      if (cachedLeague) {
+        const session = { config: state.config, events: state.events, phase: state.phase };
+        const { teams } = liveDraftToTeams(session as any, POOL);
+        
+        cachedLeague.teams = cachedLeague.teams.map(cachedTeam => {
+          const updatedTeam = teams.find(t => t.id === cachedTeam.id);
+          if (updatedTeam) {
+            return {
+              ...cachedTeam,
+              draftPicks: updatedTeam.draftPicks,
+            };
+          }
+          return cachedTeam;
+        });
+
+        if (state.phase === 'drafting') {
+          cachedLeague.status = 'live';
+        } else if (state.phase === 'complete') {
+          cachedLeague.status = 'final';
+        }
+
+        cacheLeague(cachedLeague);
+      }
+    } catch (err) {
+      console.error('[useDraftRoom] Failed to sync draft to league cache:', err);
+    }
+  }, [state.config, state.events, state.phase, league]);
+
 
   // A finished draft is archived immutably the moment it completes, so
   // Reset can no longer destroy the only record of a real draft (the
@@ -445,7 +507,6 @@ export function useDraftRoom(league: League): UseDraftRoomReturn {
       return;
     }
     clearDraftRoom(state.config.leagueKey);
-    setResumable(null);
     dispatch({ type: 'RESET' });
   }, [state.config.leagueKey, state.readOnly]);
 
@@ -465,6 +526,7 @@ export function useDraftRoom(league: League): UseDraftRoomReturn {
     logEvent,
     logEvents,
     undo: useCallback(() => dispatch({ type: 'UNDO' }), []),
+    endDraft: useCallback(() => dispatch({ type: 'END_DRAFT' }), []),
     reset,
     resume: useCallback(() => {
       const session = loadDraftRoom(leagueKeyFor(league));

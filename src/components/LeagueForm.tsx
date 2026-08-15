@@ -18,10 +18,11 @@ const YAHOO_SUPPORTED_SEASONS = Array.from(
   new Set([currentYear, ...Object.keys(NFL_GAME_KEYS).map(Number)])
 ).sort((a, b) => b - a);
 
-// Companion extension ID (Chrome Web Store / Firefox AMO). Override with VITE_ESPN_EXTENSION_ID
-// once published; defaults to an unpublished placeholder so detection silently fails in dev.
 const ESPN_EXTENSION_ID =
   (import.meta.env.VITE_ESPN_EXTENSION_ID as string | undefined) || '';
+if (import.meta.env.DEV) {
+  console.log('[LeagueForm] ESPN extension detection configured:', !!ESPN_EXTENSION_ID);
+}
 
 const SWID_REGEX = /\{[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}/;
 const SWID_BARE_REGEX = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
@@ -78,47 +79,39 @@ interface ExtensionProbe {
 // an installed extension should still show the auto-fill panel.
 function probeExtension(): Promise<ExtensionProbe | null> {
   return new Promise((resolve) => {
-    const chrome = (window as unknown as {
-      chrome?: {
-        runtime?: {
-          sendMessage?: (
-            id: string,
-            message: unknown,
-            callback: (response: { espnS2?: string; swid?: string } | undefined) => void,
-          ) => void;
-          lastError?: unknown;
-        };
-      };
-    }).chrome;
-    if (!ESPN_EXTENSION_ID || !chrome?.runtime?.sendMessage) {
-      resolve(null);
-      return;
-    }
     let settled = false;
     const timer = setTimeout(() => {
-      if (!settled) { settled = true; resolve(null); }
-    }, 1500);
-    try {
-      chrome.runtime.sendMessage(
-        ESPN_EXTENSION_ID,
-        { type: 'get-espn-cookies' },
-        (response: { espnS2?: string; swid?: string } | undefined) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          // chrome.runtime.lastError is set when the extension isn't installed
-          if (chrome.runtime?.lastError || !response) {
-            resolve(null);
-          } else {
-            resolve({ installed: true, espnS2: response.espnS2, swid: response.swid });
-          }
-        }
-      );
-    } catch {
-      if (!settled) { settled = true; clearTimeout(timer); resolve(null); }
-    }
+      if (!settled) {
+        settled = true;
+        window.removeEventListener('message', handleMessage);
+        resolve(null);
+      }
+    }, 1200);
+
+    const handleMessage = (event: MessageEvent) => {
+      if (
+        event.data &&
+        event.data.source === 'ffa-extension-relay' &&
+        event.data.type === 'GET_ESPN_COOKIES_RESPONSE'
+      ) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        window.removeEventListener('message', handleMessage);
+        const { espn_s2, swid, espnS2 } = event.data.cookies || {};
+        resolve({
+          installed: true,
+          espnS2: espn_s2 || espnS2,
+          swid: swid,
+        });
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    window.postMessage({ source: 'ffa-web-app', type: 'GET_ESPN_COOKIES' }, '*');
   });
 }
+
 
 interface LeagueFormProps {
   onSubmit: (credentials: LeagueCredentials) => void;

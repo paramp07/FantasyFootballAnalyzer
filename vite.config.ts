@@ -4,6 +4,14 @@ import react from '@vitejs/plugin-react'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import path from 'path'
 import { execSync } from 'node:child_process'
+import crypto from 'node:crypto'
+
+// Polyfill crypto.hash for Node.js < 21.7.0 (Vite relies on it)
+if (typeof crypto.hash !== 'function') {
+  (crypto as any).hash = function (algorithm: string, data: crypto.BinaryLike, outputEncoding?: crypto.BinaryToTextEncoding) {
+    return crypto.createHash(algorithm).update(data).digest(outputEncoding as any);
+  };
+}
 
 const SITE_URL = 'https://fantasyfootballanalyzer.app/'
 
@@ -61,10 +69,52 @@ ${positionUrls}
   }
 }
 
+function draftRelayWebSocketPlugin(): Plugin {
+
+  return {
+    name: 'draft-relay-websocket',
+    configureServer(server) {
+      if (!server.httpServer) return
+      let WebSocketServerClass: any = null
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        WebSocketServerClass = require('ws').WebSocketServer
+      } catch {
+        return
+      }
+      const wss = new WebSocketServerClass({ noServer: true })
+      const clients = new Set<any>()
+
+      server.httpServer.on('upgrade', (request, socket, head) => {
+        if (request.url === '/ws-draft-relay') {
+          wss.handleUpgrade(request, socket, head, (ws: any) => {
+            wss.emit('connection', ws, request)
+          })
+        }
+      })
+
+      wss.on('connection', (ws: any) => {
+        clients.add(ws)
+        ws.on('message', (data: any) => {
+          const msgStr = data.toString()
+          for (const client of clients) {
+            if (client.readyState === 1) {
+              client.send(msgStr)
+            }
+          }
+        })
+        ws.on('close', () => clients.delete(ws))
+      })
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     react(),
     sitemap(),
+    draftRelayWebSocketPlugin(),
+
     // De-minifies production stack traces in Sentry. Must come last. Uploads
     // maps under the same release name as VITE_BUILD_SHA so they attach to the
     // right deploy, then deletes them from dist so they're never published to

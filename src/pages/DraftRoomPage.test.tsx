@@ -85,9 +85,10 @@ describe('DraftRoomPage phone focus mode', () => {
         <DraftRoomPage league={makeLeague()} />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByLabelText(/auto-pick the other teams/i));
+    fireEvent.click(screen.getByText(/Live Draft Analysis/i));
     fireEvent.click(screen.getByText(/Start.*Draft/));
   }
+
 
   it('drops the masthead and moves the controls out of the status bar', () => {
     startDraftOnPhone();
@@ -130,8 +131,9 @@ describe('DraftRoomPage phone focus mode', () => {
         <DraftRoomPage league={makeLeague()} />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByLabelText(/auto-pick the other teams/i));
+    fireEvent.click(screen.getByText(/Live Draft Analysis/i));
     fireEvent.click(screen.getByText(/Start.*Draft/));
+
 
     expect(screen.getByRole('heading', { name: 'Draft Room' })).toBeInTheDocument();
     expect(screen.getByText(/Reset Draft/i)).toBeInTheDocument();

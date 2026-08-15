@@ -44,6 +44,7 @@ export function useSounds() {
   const playHover = useCallback(() => sounds.playHover(), []);
   const playSuccess = useCallback(() => sounds.playSuccess(), []);
   const playError = useCallback(() => sounds.playError(), []);
+  const playDoubleError = useCallback(() => sounds.playDoubleError(), []);
   const playFilter = useCallback(() => sounds.playFilter(), []);
   const playSort = useCallback(() => sounds.playSort(), []);
   const playPageTransition = useCallback(() => sounds.playPageTransition(), []);
@@ -75,6 +76,7 @@ export function useSounds() {
     playHover,
     playSuccess,
     playError,
+    playDoubleError,
     playFilter,
     playSort,
     playPageTransition,

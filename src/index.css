@@ -122,17 +122,16 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
-
-  /* Backstop against sideways drift. Any element that spills past the viewport
-     costs twice on a phone: iOS Safari shrinks the initial scale to fit it, so
-     the page loads zoomed out, and the document gains a horizontal pan that
-     fights vertical scrolling. `clip` is the one we want (it does not make the
-     root a scroll container, so position: sticky keeps working); `hidden` is
-     the fallback for Safari < 16 and is overridden wherever clip is supported.
-     This hides symptoms, it does not excuse them — real overflow still gets
-     fixed at the source, as --page-title above was. */
   overflow-x: hidden;
   overflow-x: clip;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Chrome, Safari, Opera */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
 }
 
 body {
@@ -151,6 +150,8 @@ body {
     repeating-linear-gradient(90deg, transparent 0 79px, rgba(241,236,225,0.025) 79px 80px),
     radial-gradient(ellipse at top, #15140f 0%, var(--ink) 60%);
   background-attachment: fixed;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
 /* The pinned background is the single worst thing on a touch screen. Fixed

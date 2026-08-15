@@ -1,6 +1,19 @@
 import { Fragment, useDeferredValue, useMemo, useState } from 'react';
-import { POOL } from '@/data/draftPool';
-import { NflTeamLabel, PosBadge } from '@/components';
+import { Pencil, Check, Trash2, Download, X, Save } from 'lucide-react';
+import { POOL, applyActivePreset } from '@/data/draftPool';
+import { NflTeamLabel, PosBadge, CustomRankingsModal } from '@/components';
+import {
+  getSavedPresets,
+  savePresets,
+  getActivePresetId,
+  setActivePresetId,
+  cleanTiers,
+  type CustomRankingPreset,
+  clearCustomRankings,
+  isDuplicateRankings,
+  nextPresetName,
+  renamePreset,
+} from '@/utils/customRankings';
 import { injuryAbbrev, injuryTitle } from '@/utils/injury';
 import type { League, Platform } from '@/types';
 import type { PoolPlayer } from '@/types/draft';
@@ -65,14 +78,40 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
   const landingPos = initialPos && POSITIONS.includes(initialPos) ? initialPos : undefined;
   const [query, setQuery] = useState('');
   const [posFilter, setPosFilter] = useState(landingPos ?? 'ALL');
-  const [sortBy, setSortBy] = useState<SortKey>('avg');
+  const [presets, setPresets] = useState<CustomRankingPreset[]>(() => getSavedPresets());
+  // Controlled state so switching presets re-renders the dropdown immediately.
+  const [activePresetId, setActivePresetIdState] = useState<string | null>(() => getActivePresetId());
+  // Inline preset edit state
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
+
+  // Keep localStorage and React state in sync together.
+  const switchPreset = (id: string | null) => {
+    setActivePresetId(id);
+    setActivePresetIdState(id);
+  };
+
+  const [sortBy, setSortBy] = useState<SortKey>(() => {
+    return activePresetId ? 'rank' : 'avg';
+  });
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const [players, setPlayers] = useState(() => POOL.players);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [draggableTier, setDraggableTier] = useState<{ tier: number; startIndex: number } | null>(null);
+
+  const isDragEnabled = sortBy === 'rank' && posFilter === 'ALL' && query.trim() === '';
+
   const [sortRev, setSortRev] = useState(false);
-  const { playFilter, playSort } = useSounds();
+  const { playFilter, playSort, playError } = useSounds();
   const { starred, avoided, cycle } = useTargets(POOL.season);
 
   const isAuction = league.draftType === 'auction';
   const [viewTab, setViewTab] = useState<ViewTab>(isAuction ? 'auction' : 'snake');
   const auctionView = viewTab === 'auction';
+  const colSpanCount = (auctionView ? 11 : 10) + (isDragEnabled ? 1 : 0);
   const scoring = league.scoringType;
   // Superflex leagues read Sleeper's 2QB ADP market (QBs go far earlier), so
   // the board's ADP column, sort, and delta match the mock AI's behavior.
@@ -125,20 +164,20 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
   const scaledValues = useMemo(
     () =>
       draftValues(
-        POOL.players,
+        players,
         POOL.baseline,
         valueLeague,
         // Auto-detected TE premium prices TEs the same way the Draft Room does.
         vorConfigFor({ tePremium: (league.tePremiumPerReception ?? 0) > 0 }),
       ),
-    [valueLeague, league.tePremiumPerReception],
+    [players, valueLeague, league.tePremiumPerReception],
   );
 
   const avgById = useMemo(() => {
     const map = new Map<string, number>();
-    for (const p of POOL.players) map.set(p.id, consensusAvg(p, scoring, superflex));
+    for (const p of players) map.set(p.id, consensusAvg(p, scoring, superflex));
     return map;
-  }, [scoring, superflex]);
+  }, [players, scoring, superflex]);
 
   const setSort = (key: SortKey) => {
     playSort();
@@ -162,11 +201,194 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
     }
   };
 
+  const saveToActivePreset = (cleanedPlayers: PoolPlayer[]) => {
+    const customRankings = cleanedPlayers.map((p, index) => ({
+      name: p.name,
+      rank: index + 1,
+      pos: p.pos,
+      id: p.id,
+      tier: p.tier,
+    }));
+
+    if (activePresetId) {
+      // Updating an existing preset — no duplicate check needed (overwrite).
+      const updatedPresets = presets.map(p => {
+        if (p.id === activePresetId) {
+          return { ...p, rankings: customRankings, updatedAt: Date.now() };
+        }
+        return p;
+      });
+      savePresets(updatedPresets);
+      setPresets(updatedPresets);
+      applyActivePreset(activePresetId);
+    } else {
+      // Creating a new auto preset — reject if it's a duplicate ordering.
+      if (isDuplicateRankings(customRankings, presets)) {
+        playError();
+        return;
+      }
+      const name = nextPresetName(presets);
+      const id = 'custom-' + Date.now();
+      const newPreset = { id, name, rankings: customRankings, updatedAt: Date.now() };
+      const updatedPresets = [...presets, newPreset];
+      savePresets(updatedPresets);
+      setPresets(updatedPresets);
+      switchPreset(id);
+      applyActivePreset(id);
+      setSortBy('rank');
+    }
+  };
+
+  const handleSaveCurrent = () => {
+    // Sort all players in POOL.players based on current sortBy and sortRev settings
+    const sorted = [...POOL.players];
+    const avg = (p: PoolPlayer) => avgById.get(p.id) ?? p.overallRank;
+    const stat = (p: PoolPlayer): number | undefined => {
+      switch (sortBy) {
+        case 'avg':
+          return avg(p);
+        case 'delta':
+          return platformDelta(p, source, scoring, superflex);
+        case 'rank':
+          return superflex ? (p.overallRankSF ?? p.overallRank) : p.overallRank;
+        case 'espnAdp':
+          return p.espnAdp;
+        case 'sleeperAdp':
+          return sleeperAdpFor(p, scoring, superflex);
+        case 'fpValue':
+          return scaledValues.get(p.id) ?? 1;
+        case 'espnValue':
+          return p.espnValue;
+        case 'yahooValue':
+          return yahoo.costs?.get(p.id);
+      }
+    };
+    const dir = (DESC_FIRST.includes(sortBy) ? -1 : 1) * (sortRev ? -1 : 1);
+
+    sorted.sort((a, b) => {
+      const sa = stat(a);
+      const sb = stat(b);
+      if (sa === undefined || sb === undefined) {
+        if (sa === sb) return a.overallRank - b.overallRank;
+        return sa === undefined ? 1 : -1;
+      }
+      return dir * (sa - sb) || a.overallRank - b.overallRank;
+    });
+
+    // Enforce tier monotonicity before saving
+    const cleaned = cleanTiers(sorted);
+    saveToActivePreset(cleaned);
+    setPlayers(cleaned);
+  };
+
+  const handleDownloadPreset = () => {
+    const preset = presets.find(p => p.id === activePresetId);
+    if (!preset) return;
+    const json = JSON.stringify(preset, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${preset.name.replace(/[^a-z0-9]/gi, '_')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (e: React.DragEvent, hoveredIndex: number) => {
+    e.preventDefault();
+    if (draggableTier) {
+      // Tier boundary is being dragged, allow drop on player rows
+      return;
+    }
+    if (draggedIndex === null || draggedIndex === hoveredIndex) return;
+
+    // Swap items in state array
+    const result = [...players];
+    const targetTier = hoveredIndex < result.length
+      ? result[hoveredIndex].tier
+      : result[result.length - 1]?.tier ?? 1;
+
+    const [removed] = result.splice(draggedIndex, 1);
+    const updatedPlayer = { ...removed, tier: targetTier };
+    result.splice(hoveredIndex, 0, updatedPlayer);
+
+    // Update overallRank
+    const updated = result.map((p, index) => {
+      const newRank = index + 1;
+      return {
+        ...p,
+        overallRank: newRank,
+        overallRankSF: newRank,
+      };
+    });
+
+    // Recalculate posRank
+    const playersByPos = new Map<string, PoolPlayer[]>();
+    updated.forEach(p => {
+      const list = playersByPos.get(p.pos) || [];
+      list.push(p);
+      playersByPos.set(p.pos, list);
+    });
+
+    playersByPos.forEach((list) => {
+      list.sort((a, b) => a.overallRank - b.overallRank);
+      list.forEach((p, idx) => {
+        p.posRank = idx + 1;
+      });
+    });
+
+    setPlayers(updated);
+    setDraggedIndex(hoveredIndex);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+
+    // Clean tiers to fix any drag discrepancies
+    const cleaned = cleanTiers(players);
+    setPlayers(cleaned);
+
+    // Save to local storage
+    saveToActivePreset(cleaned);
+  };
+
+  const handleDrop = (e: React.DragEvent, hoveredIndex: number) => {
+    if (draggableTier) {
+      e.preventDefault();
+      const oldIndex = draggableTier.startIndex;
+      const newIndex = hoveredIndex;
+      const K = draggableTier.tier;
+
+      const updated = [...players];
+      if (newIndex < oldIndex) {
+        for (let idx = newIndex; idx < oldIndex; idx++) {
+          updated[idx] = { ...updated[idx], tier: K };
+        }
+      } else if (newIndex > oldIndex) {
+        for (let idx = oldIndex; idx < newIndex; idx++) {
+          updated[idx] = { ...updated[idx], tier: K - 1 };
+        }
+      }
+
+      const cleaned = cleanTiers(updated);
+      setPlayers(cleaned);
+
+      saveToActivePreset(cleaned);
+      setDraggableTier(null);
+    }
+  };
+
   const deferredQuery = useDeferredValue(query);
 
   const rows = useMemo(() => {
     const q = normalizeName(deferredQuery);
-    const filtered = POOL.players
+    const filtered = players
       .filter(p =>
         posFilter === 'ALL' ||
         (posFilter === 'FLEX' ? FLEX_POSITIONS.has(p.pos) : p.pos === posFilter),
@@ -195,7 +417,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
     };
     const dir = (DESC_FIRST.includes(sortBy) ? -1 : 1) * (sortRev ? -1 : 1);
     // Players missing the sorted stat sink to the bottom in either
-    // direction; ties break by FantasyPros rank.
+    // direction; ties break by FFA rank.
     filtered.sort((a, b) => {
       const sa = stat(a);
       const sb = stat(b);
@@ -206,7 +428,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
       return dir * (sa - sb) || a.overallRank - b.overallRank;
     });
     return filtered;
-  }, [deferredQuery, posFilter, sortBy, sortRev, avgById, scaledValues, source, scoring, superflex, yahoo.costs]);
+  }, [players, deferredQuery, posFilter, sortBy, sortRev, avgById, scaledValues, source, scoring, superflex, yahoo.costs]);
 
   const visible = rows.slice(0, MAX_ROWS);
 
@@ -309,13 +531,285 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
               <span className={styles.settingsItem}>{league.scoringType.replace('_', ' ')}</span>
             </>
           )}
+
+          {/* Rankings Preset Custom Dropdown */}
+          <div className={styles.settingsControl} style={{ margin: 0, position: 'relative' }}>
+            Rankings Preset
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <button
+                type="button"
+                className={styles.settingsSelect}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                onClick={() => setPresetDropdownOpen(prev => !prev)}
+                title="Switch rankings presets or upload new ones"
+              >
+                {activePresetId ? (presets.find(p => p.id === activePresetId)?.name ?? 'Custom Preset') : 'Consensus (Default)'}
+                <span style={{ fontSize: '0.6rem' }}>▼</span>
+              </button>
+
+              {presetDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    marginTop: '4px',
+                    background: 'var(--ink)',
+                    border: '2px solid var(--bone)',
+                    boxShadow: '4px 4px 0 var(--bone)',
+                    zIndex: 100,
+                    width: '100%',
+                    minWidth: '200px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  {/* Default Consensus Option */}
+                  <div
+                    onClick={() => {
+                      playFilter();
+                      switchPreset(null);
+                      applyActivePreset(null);
+                      setPlayers([...POOL.players]);
+                      setSortBy('avg');
+                      setPresetDropdownOpen(false);
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      fontFamily: 'var(--font-mono)',
+                      color: !activePresetId ? 'var(--lime)' : 'var(--bone)',
+                      fontWeight: !activePresetId ? 700 : 400,
+                      background: !activePresetId ? 'rgba(214, 255, 46, 0.1)' : 'transparent',
+                      borderBottom: '1px solid var(--bone-dim)',
+                    }}
+                  >
+                    Consensus (Default)
+                  </div>
+
+                  {/* Custom Presets list with hover white Trash2 delete icon */}
+                  {presets.map(p => (
+                    <div
+                      key={p.id}
+                      className="preset-option-item"
+                      onClick={() => {
+                        playFilter();
+                        switchPreset(p.id);
+                        applyActivePreset(p.id);
+                        setPlayers([...POOL.players]);
+                        setSortBy('rank');
+                        setPresetDropdownOpen(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        fontFamily: 'var(--font-mono)',
+                        color: activePresetId === p.id ? 'var(--lime)' : 'var(--bone)',
+                        fontWeight: activePresetId === p.id ? 700 : 400,
+                        background: activePresetId === p.id ? 'rgba(214, 255, 46, 0.1)' : 'transparent',
+                        borderBottom: '1px solid rgba(255,255,255,0.08)',
+                        position: 'relative',
+                      }}
+                    >
+                      <span>{p.name}</span>
+                      <button
+                        type="button"
+                        className="preset-delete-x"
+                        onClick={e => {
+                          e.stopPropagation();
+                          const nextPresets = presets.filter(item => item.id !== p.id);
+                          savePresets(nextPresets);
+                          setPresets(nextPresets);
+                          if (activePresetId === p.id) {
+                            switchPreset(null);
+                            applyActivePreset(null);
+                            setPlayers([...POOL.players]);
+                            setSortBy('avg');
+                          }
+                        }}
+                        title={`Delete preset "${p.name}"`}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'none',
+                          alignItems: 'center',
+                        }}
+                        aria-label={`Delete ${p.name}`}
+                      >
+                        <X size={14} style={{ color: '#ffffff' }} />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Upload New Option */}
+                  <div
+                    onClick={() => {
+                      playFilter();
+                      setModalOpen(true);
+                      setPresetDropdownOpen(false);
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      fontFamily: 'var(--font-mono)',
+                      color: 'var(--lime)',
+                      fontWeight: 700,
+                      borderTop: '1px solid var(--bone)',
+                    }}
+                  >
+                    + Upload/Paste Custom...
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <style>{`
+            .preset-option-item:hover {
+              background: rgba(255, 255, 255, 0.08) !important;
+            }
+            .preset-option-item:hover .preset-delete-x {
+              display: inline-flex !important;
+            }
+          `}</style>
+
+          {/* Inline preset rename / delete — appears only when a custom preset is active */}
+          {activePresetId && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
+              {editingPresetId === activePresetId ? (
+                <>
+                  <input
+                    value={editingName}
+                    onChange={e => setEditingName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const updated = renamePreset(activePresetId, editingName);
+                        setPresets(updated);
+                        setEditingPresetId(null);
+                      }
+                      if (e.key === 'Escape') setEditingPresetId(null);
+                    }}
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontSize: '0.8rem',
+                      width: '120px',
+                    }}
+                    autoFocus
+                    aria-label="Rename preset"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = renamePreset(activePresetId, editingName);
+                      setPresets(updated);
+                      setEditingPresetId(null);
+                    }}
+                    title="Save name"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', padding: '2px', display: 'flex' }}
+                    aria-label="Save preset name"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPresets = presets.filter(p => p.id !== activePresetId);
+                      savePresets(nextPresets);
+                      setPresets(nextPresets);
+                      switchPreset(null);
+                      applyActivePreset(null);
+                      setPlayers([...POOL.players]);
+                      setSortBy('avg');
+                      setEditingPresetId(null);
+                    }}
+                    title="Delete preset"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', padding: '2px', display: 'flex' }}
+                    aria-label="Delete preset"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const preset = presets.find(p => p.id === activePresetId);
+                    setEditingName(preset?.name ?? '');
+                    setEditingPresetId(activePresetId);
+                  }}
+                  title="Rename or delete preset"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', padding: '2px', display: 'flex', opacity: 0.6 }}
+                  aria-label="Edit preset"
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+            </span>
+          )}
+
+          <button
+            type="button"
+            className={styles.settingsSelect}
+            style={{ cursor: 'pointer', padding: '0.3rem 0.6rem', marginLeft: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            onClick={handleSaveCurrent}
+            title="Save the current board order as your custom rankings"
+          >
+            <Save size={13} style={{ color: '#ffffff' }} /> Save Current
+          </button>
+          {activePresetId && (
+            <button
+              type="button"
+              className={styles.settingsSelect}
+              onClick={handleDownloadPreset}
+              title="Download current preset as JSON"
+              style={{ cursor: 'pointer', padding: '0.3rem 0.6rem', display: 'inline-flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}
+              aria-label="Download preset"
+            >
+              <Download size={13} /> Download
+            </button>
+          )}
+          {!isDragEnabled && (
+            <span
+              className={styles.settingsDim}
+              style={{ marginLeft: '1rem', color: 'var(--lime)', border: '1px dashed var(--lime)', padding: '0.2rem 0.5rem' }}
+              title="Sort by FFA RK and clear query/filters to enable manual drag and drop reordering"
+            >
+              💡 Sort by FFA RK to drag &amp; reorder
+            </span>
+          )}
           <span className={styles.settingsSpacer} />
           <span
             className={styles.settingsDim}
-            title="Rankings refresh daily from FantasyPros, ESPN, Yahoo, and Sleeper"
+            title="Rankings refresh daily from FFA, ESPN, Yahoo, and Sleeper"
           >
             Updated {updated.toLocaleDateString()}
           </span>
+          <button
+            type="button"
+            className={styles.resetButton}
+            onClick={() => {
+              if (window.confirm("Are you sure you want to clear your custom rankings and revert to the site's default rankings?")) {
+                clearCustomRankings();
+                window.location.reload();
+              }
+            }}
+            title="Revert back to default rankings and discard custom rankings"
+          >
+            Reset
+          </button>
         </div>
 
         <div className={styles.tabs}>
@@ -386,6 +880,13 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
           <table className={styles.table}>
             <thead>
               <tr>
+                {isDragEnabled && (
+                  <th
+                    className={styles.dragHead}
+                    aria-label="Drag to reorder"
+                    title="Drag handles are active because you are sorted by FFA RK, with no queries or filters active."
+                  />
+                )}
                 <th
                   className={styles.starCell}
                   aria-label="Target list"
@@ -404,23 +905,18 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                   'avg',
                   'AVG',
                   superflex
-                    ? 'Consensus average of the FantasyPros superflex rank and Sleeper superflex ADP'
-                    : 'Consensus average of FantasyPros rank, ESPN ADP, Yahoo ADP rank, and Sleeper ADP',
+                    ? 'Consensus average of the FFA superflex rank and Sleeper superflex ADP'
+                    : 'Consensus average of FFA rank, ESPN ADP, Yahoo ADP rank, and Sleeper ADP',
                 )}
                 {sortableTh('delta', `Δ ${source.label}`, source.describe)}
                 {sortableTh(
                   'rank',
-                  'FP RK',
+                  'FFA RK',
                   superflex
-                    ? 'FantasyPros superflex (2QB) consensus rank'
-                    : 'FantasyPros expert consensus rank',
+                    ? 'FFA superflex (2QB) consensus rank'
+                    : 'FFA expert consensus rank',
                 )}
-                <th
-                  className={`${styles.num} ${styles.tierCol}`}
-                  title="FantasyPros tier: players in the same tier are seen as close in value, so the breaks between tiers matter more than rank order within one"
-                >
-                  Tier
-                </th>
+
                 <th title="Position, with the player's rank at that position">Pos</th>
                 <th title="NFL team">Team</th>
                 <th
@@ -468,21 +964,50 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
               {visible.map((p, i) => {
                 const avg = avgById.get(p.id) ?? p.overallRank;
                 const delta = platformDelta(p, source, scoring, superflex);
-                // In superflex the FP RK column tracks the superflex rank so it
+                // In superflex the FFA RK column tracks the superflex rank so it
                 // matches the delta and consensus (which use overallRankSF).
-                const fpRank = superflex ? (p.overallRankSF ?? p.overallRank) : p.overallRank;
+                const ffaRank = superflex ? (p.overallRankSF ?? p.overallRank) : p.overallRank;
                 // Tier separators only when the order follows the tiers
-                // (FantasyPros rank sort); drafting hinges on these breaks.
+                // (FFA rank sort); drafting hinges on these breaks.
                 const showTierBreak =
                   sortBy === 'rank' && i > 0 && p.tier > 0 && visible[i - 1].tier !== p.tier;
                 return (
                   <Fragment key={p.id}>
                   {showTierBreak && (
-                    <tr className={styles.tierBreakRow} aria-hidden="true">
-                      <td colSpan={auctionView ? 12 : 11}>TIER {p.tier}</td>
+                    <tr className={styles.tierBreakRow}>
+                      <td colSpan={colSpanCount}>
+                        <span
+                          className={`${styles.tierBreakText} ${
+                            draggableTier?.tier === p.tier ? styles.tierDraggableOn : ''
+                          }`}
+                          draggable={isDragEnabled}
+                          onDragStart={(e) => {
+                            setDraggableTier({ tier: p.tier, startIndex: i });
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', `tier:${p.tier}:${i}`);
+                          }}
+                          onDragEnd={() => {
+                            setDraggableTier(null);
+                          }}
+                        >
+                          TIER {p.tier}
+                        </span>
+                      </td>
                     </tr>
                   )}
-                  <tr className={styles.row}>
+                  <tr
+                    className={`${styles.row} ${draggedIndex === i ? styles.draggedRow : ''}`}
+                    draggable={isDragEnabled}
+                    onDragStart={(e) => handleDragStart(e, i)}
+                    onDragOver={(e) => handleDragOver(e, i)}
+                    onDragEnd={handleDragEnd}
+                    onDrop={(e) => handleDrop(e, i)}
+                  >
+                    {isDragEnabled && (
+                      <td className={styles.dragCell} title="Drag up/down to change rank">
+                        ⋮⋮
+                      </td>
+                    )}
                     <td className={styles.starCell}>
                       <button
                         type="button"
@@ -527,8 +1052,8 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
                     >
                       {delta === undefined ? '-' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`}
                     </td>
-                    <td className={`${styles.num} ${styles.dim}`}>{fpRank}</td>
-                    <td className={`${styles.num} ${styles.dim} ${styles.tierCol}`}>{p.tier}</td>
+                    <td className={`${styles.num} ${styles.dim}`}>{ffaRank}</td>
+
                     <td>
                       <PosBadge pos={p.pos} posRank={p.posRank} />
                     </td>
@@ -561,7 +1086,7 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
               })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={auctionView ? 12 : 11} className={styles.emptyRow}>
+                  <td colSpan={colSpanCount} className={styles.emptyRow}>
                     No players match.
                   </td>
                 </tr>
@@ -575,6 +1100,17 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
           )}
         </div>
       </div>
+      {modalOpen && (
+        <CustomRankingsModal
+          onClose={() => setModalOpen(false)}
+          onApply={() => {
+            setPresets(getSavedPresets());
+            setPlayers([...POOL.players]);
+            setSortBy('rank');
+            setModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

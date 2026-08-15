@@ -1,32 +1,65 @@
 <!doctype html>
-<html lang="en">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>FFA ESPN Helper</title>
-    <link rel="stylesheet" href="popup.css" />
+    <style>
+      body {
+        width: 270px;
+        margin: 0;
+        padding: 16px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #0b130e;
+        color: #e8ede6;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      h1 span { color: #d6ff2e; }
+      .sub { margin: 0 0 14px; font-size: 11px; color: #8aa196; }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-top: 1px solid #1a2a20;
+        font-size: 12px;
+      }
+      .k { color: #8aa196; font-weight: 500; }
+      .v { font-family: ui-monospace, SFMono-Regular, monospace; font-weight: 700; }
+      .ok { color: #d6ff2e; }
+      .bad { color: #ff5d5d; }
+      .warn { color: #ffb937; }
+      a {
+        display: block;
+        margin-top: 14px;
+        padding: 10px;
+        text-align: center;
+        background: #d6ff2e;
+        color: #0b130e;
+        font-weight: 800;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        text-decoration: none;
+        border-radius: 6px;
+        transition: opacity 0.15s;
+      }
+      a:hover {
+        opacity: 0.9;
+      }
+    </style>
   </head>
   <body>
-    <div class="wrap">
-      <div class="kicker">Fantasy Football Analyzer</div>
-      <h1>ESPN Helper</h1>
-
-      <div id="status" class="status pending">Checking espn.com session...</div>
-
-      <div class="actions">
-        <button id="open-espn">Open espn.com</button>
-        <button id="open-app">Open Analyzer</button>
-      </div>
-
-      <p class="hint">
-        This extension only does one thing: when the Analyzer web app asks,
-        it hands over your <code>espn_s2</code> and <code>SWID</code> cookies so you
-        can skip the DevTools step.
-      </p>
-      <p class="hint dim">
-        No data is sent anywhere by this extension.
-      </p>
-    </div>
-
+    <h1><span>FFA</span> - Helper</h1>
+    <p class="sub">Fantasy Football Analyzer Live Sync</p>
+    <div class="row"><span class="k">WebSocket</span><span class="v" id="ws">—</span></div>
+    <div class="row"><span class="k">Draft Room</span><span class="v" id="room">—</span></div>
+    <div class="row"><span class="k">Picks Synced</span><span class="v" id="picks">—</span></div>
+    <a id="warroom" href="http://localhost:5173/draft-room" target="_blank">Open Draft Analysis</a>
     <script src="popup.js"></script>
   </body>
 </html>

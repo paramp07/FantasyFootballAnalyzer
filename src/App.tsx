@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, Suspense, lazy, type ReactNode } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useSearchParams, useParams } from 'react-router-dom';
 import { Header, YearSelector, SeasonLoadingOverlay } from '@/components';
+
 import { DraftPrepBanner } from '@/components/DraftPrepBanner';
 import { GuestBanner } from '@/components/GuestBanner';
 import { SeasonFallbackNotice } from '@/components/SeasonFallbackNotice';
@@ -247,6 +248,106 @@ function App() {
     }
   }, [location, navigate, load, playError]);
 
+  // Global Extension Logger: logs live extension picks and heartbeats directly into the browser console
+  useEffect(() => {
+    console.log(
+      '%c[GRIDIRON APP] Extension Pick Listener Active on http://localhost:5173',
+      'color: #d6ff2e; background: #0f172a; font-weight: bold; font-size: 14px; padding: 4px 10px; border-radius: 4px; border: 1px solid #d6ff2e;',
+    );
+
+    const handlePickLog = (event: Event) => {
+
+      const detail = (event as CustomEvent).detail;
+      if (!detail) return;
+      console.log(
+        '%c[GRIDIRON EXTENSION PICKS RECEIVED]',
+        'color: #00e699; background: #0a0a0a; font-weight: bold; font-size: 15px; padding: 6px 12px; border: 2px solid #00e699;',
+        detail,
+      );
+      if (detail.picks && Array.isArray(detail.picks) && detail.picks.length > 0) {
+        console.table(
+          detail.picks.map((p: any) => ({
+            Pick: `#${p.overall || p.pick_no || '-'}`,
+            Player: p.player_name || p.name || 'Unknown',
+            Pos: p.position || p.pos || 'N/A',
+            Team: p.team_name || p.team || 'N/A',
+            Price: p.winningBid ? `$${p.winningBid}` : (p.amount ? `$${p.amount}` : '-'),
+          })),
+        );
+      }
+    };
+
+    const handleHeartbeatLog = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      console.log(
+        '%c[GRIDIRON EXTENSION HEARTBEAT OK]',
+        'color: #d6ff2e; font-weight: bold;',
+        detail,
+      );
+    };
+
+    window.addEventListener('DRAFT_PICKS_UPDATE', handlePickLog);
+    window.addEventListener('GRIDIRON_HEARTBEAT', handleHeartbeatLog);
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel('gridiron_live_sync');
+      channel.onmessage = (e) => {
+        if (e.data?.type === 'DRAFT_PICKS_UPDATE' && e.data?.data) {
+          handlePickLog(new CustomEvent('DRAFT_PICKS_UPDATE', { detail: e.data.data }));
+        } else if (e.data?.type === 'GRIDIRON_HEARTBEAT' && e.data?.data) {
+          handleHeartbeatLog(new CustomEvent('GRIDIRON_HEARTBEAT', { detail: e.data.data }));
+        }
+      };
+    }
+
+    let ws: WebSocket | null = null;
+    let wsTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connectWS = () => {
+      try {
+        ws = new WebSocket('ws://localhost:8080');
+        ws.onopen = () =>
+          console.log(
+            '%c[GRIDIRON WS RELAY CONNECTED (ws://localhost:8080)]',
+            'color: #00e699; background: #0a0a0a; font-weight: bold; font-size: 14px; padding: 4px 10px; border-radius: 4px; border: 1px solid #00e699;',
+          );
+        ws.onmessage = (e) => {
+          try {
+            const payload = JSON.parse(e.data);
+            if (payload.type === 'DRAFT_PICKS_UPDATE' && payload.data) {
+              handlePickLog(new CustomEvent('DRAFT_PICKS_UPDATE', { detail: payload.data }));
+            } else if (payload.type === 'GRIDIRON_HEARTBEAT' && payload.data) {
+              handleHeartbeatLog(new CustomEvent('GRIDIRON_HEARTBEAT', { detail: payload.data }));
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        };
+        ws.onclose = () => {
+          wsTimer = setTimeout(connectWS, 3000);
+        };
+        ws.onerror = () => {};
+      } catch {
+        wsTimer = setTimeout(connectWS, 4000);
+      }
+    };
+    connectWS();
+
+    return () => {
+      window.removeEventListener('DRAFT_PICKS_UPDATE', handlePickLog);
+      window.removeEventListener('GRIDIRON_HEARTBEAT', handleHeartbeatLog);
+      if (channel) channel.close();
+      if (ws) ws.close();
+      if (wsTimer) clearTimeout(wsTimer);
+    };
+  }, []);
+
+
+
+
+
+
   const handleLoadLeague = async (credentials: LeagueCredentials) => {
     let loaded = await load(credentials);
     // Stay on the form when the load failed; the error renders there.
@@ -416,10 +517,20 @@ function App() {
   // Data pages require a real (non-guest) league. Guests get redirected to
   // Rankings; no league at all goes home. The render callback receives the
   // narrowed, non-null league.
-  const dataRoute = (render: (league: League) => ReactNode): ReactNode =>
-    league && !league.isGuest
-      ? render(league)
-      : <Navigate to={league?.isGuest ? '/rankings' : '/'} replace />;
+  const dataRoute = (render: (league: League) => ReactNode): ReactNode => {
+    if (league && !league.isGuest) {
+      return render(league);
+    }
+    if (isLoading) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+          <div className="spinner" />
+        </div>
+      );
+    }
+    return <Navigate to={league?.isGuest ? '/rankings' : '/'} replace />;
+  };
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -460,6 +571,9 @@ function App() {
             onOpen={handleOpenDraftPrep}
           />
         )}
+
+
+
 
       {seasonFallbackNotice && (
         <SeasonFallbackNotice message={seasonFallbackNotice} onDismiss={dismissSeasonFallbackNotice} />

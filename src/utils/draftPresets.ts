@@ -26,6 +26,7 @@ export type PresetSettings = Pick<
   | 'budget'
   | 'keepersPerTeam'
   | 'keeperEscalation'
+  | 'teams'
 >;
 
 export interface DraftPreset {
@@ -46,6 +47,7 @@ const PRESET_KEYS: Array<keyof PresetSettings> = [
   'budget',
   'keepersPerTeam',
   'keeperEscalation',
+  'teams',
 ];
 
 // Pull just the preset-relevant fields out of a full config.

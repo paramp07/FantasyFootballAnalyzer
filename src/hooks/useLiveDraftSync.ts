@@ -5,7 +5,9 @@ import { getDraft, getLeagueDrafts, getLiveDraftPicks, parseDraftId } from '@/ap
 import type { SleeperDraftStub } from '@/api/sleeperDraft';
 import type { SleeperLivePick } from '@/api/sleeperDraft';
 import { loadLastConnection } from '@/utils/lastConnection';
+import { matchKey } from '@/utils/playerNames';
 import { logger } from '@/utils/logger';
+import { playError, playDoubleError } from '@/utils/sounds';
 import type { UseDraftRoomReturn } from './useDraftRoom';
 
 const POLL_MS = 10_000;
@@ -44,7 +46,13 @@ export interface UseLiveDraftSyncReturn {
   // Accepts a sleeper.com draft URL or a bare id; empty clears it.
   setWatch: (input: string) => boolean;
   toggle: () => void;
+  // Timestamp of the last extension heartbeat pulse
+  lastHeartbeat: number | null;
+  // Live sync countdown clock seconds
+  clockSeconds: number | null;
+  clockSecondsReceivedAt: number;
 }
+
 
 // Auto-ingests Sleeper draft picks into the event log so nobody has to
 // transcribe a live draft by hand. Polls the public draft endpoint, maps
@@ -53,7 +61,8 @@ export interface UseLiveDraftSyncReturn {
 // logEvent path manual entry uses. Yahoo/ESPN stay manual (Yahoo has no
 // public draft feed; ESPN picks carry ids the pool doesn't map yet).
 export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseLiveDraftSyncReturn {
-  const { config, derived, phase, pool, logEvents, setLiveKeepers } = room;
+  const { config, derived, phase, pool, logEvents, setLiveKeepers, start } = room;
+
   const [enabled, setEnabled] = useState(false);
   const [status, setStatus] = useState<LiveSyncStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +70,11 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
   const [mismatch, setMismatch] = useState<string | null>(null);
   const [watchId, setWatchId] = useState<string | null>(null);
   const [watchSlot, setWatchSlot] = useState<number | null>(null);
+  const [lastHeartbeat, setLastHeartbeat] = useState<number | null>(null);
+  const [clockSeconds, setClockSeconds] = useState<number | null>(null);
+  const [clockSecondsReceivedAt, setClockSecondsReceivedAt] = useState<number>(0);
   const draftIdRef = useRef<string | null>(null);
+
   // Seats the watched draft's slot N onto the room's slot N + seatOffset, so
   // the seat detected as yours becomes your team. 0 until a draft resolves.
   const seatOffsetRef = useRef(0);
@@ -70,16 +83,26 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
   // carry no roster id of ours. config.teams is already in draft-slot order.
   const slotSeats = useMemo(() => config.teams.map(t => t.id), [config.teams]);
 
-  // A guest's `platform` is just the Rankings delta lens, not a real Sleeper
-  // league, so live sync never applies (there's no draft id to poll).
   const available =
-    !league.isGuest && league.platform === 'sleeper' && config.mode === 'live' && phase === 'drafting';
+    !league.isGuest &&
+    (league.platform === 'sleeper' || league.platform === 'espn' || league.platform === 'yahoo') &&
+    config.mode === 'live' &&
+    (phase === 'setup' || phase === 'drafting');
 
   // Sleeper player id -> pool player id (bundled by the data pipeline).
   const bySleeperId = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of pool.players) {
       if (p.sleeperId) map.set(p.sleeperId, p.id);
+    }
+    return map;
+  }, [pool.players]);
+
+  const byMatchKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of pool.players) {
+      map.set(matchKey(p.name, p.pos), p.id);
+      map.set(matchKey(p.name), p.id);
     }
     return map;
   }, [pool.players]);
@@ -97,6 +120,14 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
       // behind, they would hold players out of a board the user is now logging
       // by hand, with no way to release them.
       setLiveKeepers([]);
+      setClockSeconds(null);
+      if (message) {
+        try {
+          playError();
+        } catch {
+          // Ignore audio errors
+        }
+      }
     },
     [setLiveKeepers],
   );
@@ -205,7 +236,7 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
             const draft = await getDraft(watchId).catch(() => null);
             if (cancelled) return;
             if (!draft) {
-              stop(`No Sleeper draft found for id ${watchId}.`);
+              stop(`No draft found for id ${watchId}.`);
               return;
             }
             setMismatch(shapeMismatch(draft));
@@ -219,7 +250,7 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
               drafts.find(d => d.status === 'drafting') ??
               drafts.sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0))[0];
             if (!active) {
-              stop('No Sleeper draft found for this league yet.');
+              stop('No draft found for this league yet.');
               return;
             }
             draftIdRef.current = active.draft_id;
@@ -367,10 +398,183 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
     };
   }, [enabled, available, league.id, watchId, shapeMismatch, detectSlot, seatForSlot, slotSeats, config.myTeamId, derived.draftedPlayerIds, bySleeperId, teamIds, config.draftType, logEvents, setLiveKeepers, stop]);
 
+  // ESPN and Yahoo Extension Sync Listener
+  useEffect(() => {
+    if (!enabled || !available) return;
+    if (league.platform !== 'espn' && league.platform !== 'yahoo') return;
+
+    setStatus('syncing');
+
+    function slotForOverall(overall: number, teamsCount: number, draftType: string): number {
+      if (draftType === 'linear') {
+        return ((overall - 1) % teamsCount) + 1;
+      }
+      const round = Math.floor((overall - 1) / teamsCount) + 1;
+      const pickInRound = ((overall - 1) % teamsCount) + 1;
+      return round % 2 === 1 ? pickInRound : teamsCount - pickInRound + 1;
+    }
+
+    const handleExtensionPicks = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const data = customEvent.detail;
+      console.log(`[FFA Live Sync] Received ${league.platform.toUpperCase()} draft update from extension:`, data);
+
+      if (!data || !Array.isArray(data.picks)) return;
+
+      const picks = data.picks;
+      const teamsCount = data.teams || config.teams.length || 12;
+      const draftType = data.draft_type || config.draftType || 'snake';
+
+      if (typeof data.clock_seconds === 'number') {
+        setClockSeconds(data.clock_seconds);
+        setClockSecondsReceivedAt(Date.now());
+      }
+
+      if (data.autopick === true) {
+        try {
+          playDoubleError();
+        } catch {
+          // Ignore audio errors
+        }
+      }
+
+      console.log(`%c[FFA Extension Sync] Current Picks (${picks.length}):`, 'color: #d6ff2e; font-weight: bold;');
+      
+      const batch: any[] = [];
+      const skipped: string[] = [];
+
+      for (const p of picks) {
+        console.log(`  Pick #${p.overall}: ${p.player_name || 'Unknown Player'} (${p.position || 'Unknown Pos'})`);
+
+        if (!p.player_name) continue;
+
+        // Try matching by name
+        let playerKey = matchKey(p.player_name, p.position || undefined);
+        let playerId = byMatchKey.get(playerKey) || byMatchKey.get(matchKey(p.player_name));
+
+        // Fallback: search for defense names if position is DEF/DST
+        if (!playerId && (p.position === 'DEF' || p.position === 'DST')) {
+          playerId = byMatchKey.get(matchKey(p.player_name, 'DST'));
+        }
+
+        if (!playerId) {
+          skipped.push(`pick ${p.overall} (${p.player_name})`);
+          continue;
+        }
+
+        if (derived.draftedPlayerIds.has(playerId)) continue;
+
+        const slot = slotForOverall(p.overall, teamsCount, draftType);
+        const teamId = seatForSlot(slot, 0);
+
+        if (!teamId || !teamIds.has(teamId)) {
+          console.warn(`[FFA Extension Sync] Ignored pick ${p.overall} for slot ${slot} - no matching team in React app`);
+          continue;
+        }
+
+        const price = Number(p.winningBid || p.amount || 1);
+        batch.push(
+          config.draftType === 'auction'
+            ? {
+                kind: 'auction_sale' as const,
+                playerId,
+                nominatedById: teamId,
+                wonById: teamId,
+                price: price,
+              }
+            : {
+                kind: 'snake_pick' as const,
+                playerId,
+                teamId,
+              }
+        );
+      }
+
+      setUnmapped(prev => (prev.join('|') === skipped.join('|') ? prev : skipped));
+
+      if (batch.length > 0) {
+        if (phase === 'setup') {
+          start();
+        }
+        console.log('[FFA Extension Sync] Ingesting batch:', batch);
+        const rejection = logEvents(batch);
+        if (rejection) {
+          if (rejection.error !== 'That player has already been drafted.') {
+            console.error('[FFA Extension Sync] Rejection error:', rejection.error);
+          }
+        }
+      }
+    };
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel('gridiron_live_sync');
+      channel.onmessage = (event: MessageEvent) => {
+        if (event.data?.type === 'DRAFT_PICKS_UPDATE' && event.data?.data) {
+          handleExtensionPicks(new CustomEvent('DRAFT_PICKS_UPDATE', { detail: event.data.data }));
+        } else if (event.data?.type === 'GRIDIRON_HEARTBEAT' && event.data?.data) {
+          setLastHeartbeat(Date.now());
+        }
+      };
+    }
+
+    let ws: WebSocket | null = null;
+    let wsTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connectWS = () => {
+      try {
+        ws = new WebSocket('ws://localhost:8080');
+        ws.onmessage = (e) => {
+          try {
+            const payload = JSON.parse(e.data);
+            if (payload.type === 'DRAFT_PICKS_UPDATE' && payload.data) {
+              handleExtensionPicks(new CustomEvent('DRAFT_PICKS_UPDATE', { detail: payload.data }));
+            } else if (payload.type === 'GRIDIRON_HEARTBEAT') {
+              setLastHeartbeat(Date.now());
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        };
+        ws.onclose = () => {
+          wsTimer = setTimeout(connectWS, 3000);
+        };
+        ws.onerror = () => {};
+      } catch {
+        wsTimer = setTimeout(connectWS, 4000);
+      }
+    };
+    connectWS();
+
+    const handleHeartbeat = () => {
+      setLastHeartbeat(Date.now());
+    };
+
+    window.addEventListener('DRAFT_PICKS_UPDATE', handleExtensionPicks);
+    window.addEventListener('GRIDIRON_HEARTBEAT', handleHeartbeat);
+    return () => {
+      window.removeEventListener('DRAFT_PICKS_UPDATE', handleExtensionPicks);
+      window.removeEventListener('GRIDIRON_HEARTBEAT', handleHeartbeat);
+      if (channel) {
+        channel.close();
+      }
+      if (ws) ws.close();
+      if (wsTimer) clearTimeout(wsTimer);
+    };
+  }, [enabled, available, league.platform, config.teams.length, config.draftType, slotSeats, config.myTeamId, derived.draftedPlayerIds, byMatchKey, teamIds, logEvents, seatForSlot, phase, start]);
+
+
+
+
+
+
+
+
   // Leaving the drafting phase (complete or reset) ends the session.
   useEffect(() => {
     if (!available && enabled) stop(null);
   }, [available, enabled, stop]);
 
-  return { available, enabled, status, error, unmapped, mismatch, watchId, watchSlot, setWatch, toggle };
+  return { available, enabled, status, error, unmapped, mismatch, watchId, watchSlot, setWatch, toggle, lastHeartbeat, clockSeconds, clockSecondsReceivedAt };
 }
+

@@ -1,28 +1,75 @@
-const ANALYZER_URL = 'https://krool.github.io/FantasyFootballAnalyzer/';
+const DEFAULTS = { appUrl: 'http://localhost:5173' }
 
-const statusEl = document.getElementById('status');
-const openEspnBtn = document.getElementById('open-espn');
-const openAppBtn = document.getElementById('open-app');
+const set = (id, text, cls) => {
+  const el = document.getElementById(id)
+  if (!el) return
+  el.textContent = text
+  el.className = 'v' + (cls ? ' ' + cls : '')
+}
 
-async function refreshStatus() {
-  const espnS2 = await chrome.cookies.get({ url: 'https://www.espn.com', name: 'espn_s2' });
-  const swid = await chrome.cookies.get({ url: 'https://www.espn.com', name: 'SWID' });
+function relay(method, path, body) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ kind: 'relay', method, path, body }, (res) => {
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, status: 0, error: chrome.runtime.lastError.message })
+        } else {
+          resolve(res || { ok: false, status: 0 })
+        }
+      })
+    } catch (e) {
+      resolve({ ok: false, status: 0, error: e.message })
+    }
+  })
+}
 
-  if (espnS2 && swid) {
-    statusEl.textContent = 'ESPN session detected. You\'re good to go.';
-    statusEl.className = 'status ok';
+function getWSStatus() {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ kind: 'ws-status' }, (res) => {
+        if (chrome.runtime.lastError || !res) {
+          resolve(false)
+        } else {
+          resolve(!!res.connected)
+        }
+      })
+    } catch {
+      resolve(false)
+    }
+  })
+}
+
+const isDraftRoom = (url) =>
+  !!url &&
+  (url.includes('fantasy.espn.com/football/draft') ||
+    url.includes('fantasy.espn.com/football/mock') ||
+    url.includes('football.fantasysports.yahoo.com/draftclient/'))
+
+async function refresh() {
+  const cfg = await chrome.storage.sync.get(DEFAULTS).catch(() => DEFAULTS)
+  
+  const wsOk = await getWSStatus()
+  set('ws', wsOk ? 'CONNECTED' : 'DISCONNECTED', wsOk ? 'ok' : 'bad')
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  const inRoom = isDraftRoom(tab?.url)
+  set('room', inRoom ? 'detected' : 'not open', inRoom ? 'ok' : 'warn')
+
+  const r = await relay('GET', '/api/espn/draft/active')
+  if (r.ok && r.data) {
+    set('picks', String(r.data.picks ?? 0), (r.data.picks ?? 0) > 0 ? 'ok' : 'warn')
+  } else if (r.status === 404) {
+    set('picks', '0', 'warn')
   } else {
-    statusEl.textContent = 'Not logged into espn.com. Open it and sign in first.';
-    statusEl.className = 'status missing';
+    set('picks', '—', 'bad')
+  }
+
+  const link = document.getElementById('warroom')
+  if (link) {
+    const baseUrl = (cfg.appUrl || DEFAULTS.appUrl).replace(/\/$/, '')
+    link.href = baseUrl.includes('/draft-room') ? baseUrl : `${baseUrl}/draft-room`
   }
 }
 
-openEspnBtn.addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://www.espn.com/fantasy/football/' });
-});
-
-openAppBtn.addEventListener('click', () => {
-  chrome.tabs.create({ url: ANALYZER_URL });
-});
-
-refreshStatus();
+refresh()
+setInterval(refresh, 2000)
