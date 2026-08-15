@@ -214,6 +214,13 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
     }
   }, [phase, location.state, room]);
 
+  // Automatically end the draft when the last pick is made
+  useEffect(() => {
+    if (phase === 'drafting' && derived.pickCount >= derived.totalPicks && derived.totalPicks > 0) {
+      room.endDraft();
+    }
+  }, [phase, derived.pickCount, derived.totalPicks, room]);
+
 
 
   // Phone + live draft = focus mode. The class drives the one piece of
