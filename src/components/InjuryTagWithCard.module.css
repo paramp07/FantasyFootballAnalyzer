@@ -88,14 +88,14 @@
 }
 
 .title {
-  font-family: 'Bowlby One', cursive, sans-serif;
-  font-size: 0.95rem;
+  font-family: 'Anton', sans-serif;
+  font-size: 1.15rem;
   font-weight: 400;
   letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--bone);
   margin: 0;
-  line-height: 0.9;
+  line-height: 1.2;
   word-break: break-word;
   overflow-wrap: break-word;
 }
