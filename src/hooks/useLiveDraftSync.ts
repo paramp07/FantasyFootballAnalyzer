@@ -462,13 +462,15 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
 
         if (!p.player_name) continue;
 
-        // Try matching by name
+        // Try matching by name / playerNames helper
         let playerKey = matchKey(p.player_name, p.position || undefined);
         let playerId = byMatchKey.get(playerKey) || byMatchKey.get(matchKey(p.player_name));
 
-        // Fallback: search for defense names if position is DEF/DST
-        if (!playerId && (p.position === 'DEF' || p.position === 'DST')) {
-          playerId = byMatchKey.get(matchKey(p.player_name, 'DST'));
+        if (!playerId) {
+          const match = matchPlayer({ name: p.player_name, pos: p.position, team: p.team }, pool.players);
+          if (match) {
+            playerId = match.id;
+          }
         }
 
         if (!playerId) {
