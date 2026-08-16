@@ -5,7 +5,7 @@ import { getDraft, getLeagueDrafts, getLiveDraftPicks, parseDraftId } from '@/ap
 import type { SleeperDraftStub } from '@/api/sleeperDraft';
 import type { SleeperLivePick } from '@/api/sleeperDraft';
 import { loadLastConnection } from '@/utils/lastConnection';
-import { matchKey } from '@/utils/playerNames';
+import { basePosition, matchKey, matchPlayer } from '@/utils/playerNames';
 import { logger } from '@/utils/logger';
 import { playError, playDoubleError } from '@/utils/sounds';
 import type { UseDraftRoomReturn } from './useDraftRoom';
@@ -298,7 +298,19 @@ export function useLiveDraftSync(league: League, room: UseDraftRoomReturn): UseL
         const pickNos: number[] = [];
         const skipped: string[] = [];
         for (const pick of made) {
-          const playerId = bySleeperId.get(pick.player_id);
+          let playerId = bySleeperId.get(pick.player_id);
+
+          if (!playerId) {
+            const meta = pick.metadata;
+            const rawName = [meta?.first_name, meta?.last_name].filter(Boolean).join(' ') || pick.player_id;
+            const rawPos = meta?.position || (pick.player_id && basePosition(pick.player_id) === 'DST' ? 'DST' : undefined);
+            const rawTeam = meta?.team || pick.player_id;
+            const match = matchPlayer({ name: rawName, pos: rawPos, team: rawTeam }, pool.players);
+            if (match) {
+              playerId = match.id;
+            }
+          }
+
           // A watched draft's roster ids are its own league's, not ours (a
           // mock leaves them null entirely), so seat those picks by draft
           // slot, rotated so the seat detected as the user's becomes the

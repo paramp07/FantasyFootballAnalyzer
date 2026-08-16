@@ -14,6 +14,8 @@ const TEAM_ALIASES: Record<string, string> = {
   JAX: 'JAC',
   WSH: 'WAS',
   LA: 'LAR',
+  RAM: 'LAR',
+  RAMS: 'LAR',
   STL: 'LAR',
   SD: 'LAC',
   OAK: 'LV',
@@ -44,9 +46,22 @@ export function normalizeName(name: string): string {
   return tokens.join(' ');
 }
 
-// "RB12" -> "RB", "DST3" -> "DST", "D/ST" -> "DST"
+// "RB12" -> "RB", "DST3" -> "DST", "D/ST" -> "DST", "DEF" -> "DST"
 export function basePosition(pos: string): string {
-  return pos.toUpperCase().replace(/\//g, '').replace(/\d+$/, '');
+  const upper = pos.toUpperCase().replace(/\//g, '').replace(/\d+$/, '');
+  if (upper === 'DEF') return 'DST';
+  return upper;
+}
+
+export function stripDstSuffix(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\//g, '')
+    .replace(/[.'’]/g, '')
+    .replace(/-/g, '')
+    .replace(/\b(dst|defense|def)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function matchKey(name: string, pos?: string): string {
@@ -79,5 +94,31 @@ export function matchPlayer<T extends NameCandidate>(
     const teamHits = hits.filter(c => canonicalTeam(c.team) === queryTeam);
     if (teamHits.length === 1) return teamHits[0];
   }
+
+  // D/ST Team Defense matching fallback (e.g. "Broncos D/ST" -> "Denver Broncos", "Texans D/ST" -> "Houston Texans", "RAM" -> "Los Angeles Rams")
+  const isDstQuery = (query.pos && basePosition(query.pos) === 'DST') || /\b(dst|defense|def)\b/i.test(query.name) || /\bd\/st\b/i.test(query.name);
+  if (isDstQuery) {
+    const dstCandidates = candidates.filter(c => c.pos && basePosition(c.pos) === 'DST');
+    if (query.team) {
+      const queryTeam = canonicalTeam(query.team);
+      const teamHits = dstCandidates.filter(c => canonicalTeam(c.team) === queryTeam);
+      if (teamHits.length === 1) return teamHits[0];
+    }
+    const cleanQuery = stripDstSuffix(query.name);
+    if (cleanQuery) {
+      // 1. Try exact team match if query name is a team code (e.g. "DEN", "HOU", "SEA", "LAR")
+      const codeTeam = canonicalTeam(cleanQuery);
+      const codeHits = dstCandidates.filter(c => canonicalTeam(c.team) === codeTeam);
+      if (codeHits.length === 1) return codeHits[0];
+
+      // 2. Try substring match (e.g. "broncos" inside "denver broncos", "texans" inside "houston texans")
+      const nameHits = dstCandidates.filter(c => {
+        const cleanCand = stripDstSuffix(c.name);
+        return cleanCand.includes(cleanQuery) || cleanQuery.includes(cleanCand);
+      });
+      if (nameHits.length === 1) return nameHits[0];
+    }
+  }
+
   return null;
 }

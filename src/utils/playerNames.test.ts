@@ -67,8 +67,18 @@ describe('matchPlayer', () => {
     expect(matchPlayer({ name: 'Josh Allen', pos: 'QB' }, pool)?.id).toBe('b');
   });
 
-  it('matches DSTs by full team name', () => {
-    expect(matchPlayer({ name: 'Houston Texans' }, pool)?.id).toBe('c');
+  it('matches DSTs by full team name or nickname or team abbreviation', () => {
+    const dstPool = [
+      { name: 'Denver Broncos', pos: 'DST', team: 'DEN', id: 'den' },
+      { name: 'Houston Texans', pos: 'DST', team: 'HOU', id: 'hou' },
+      { name: 'Seattle Seahawks', pos: 'DST', team: 'SEA', id: 'sea' },
+      { name: 'Los Angeles Rams', pos: 'DST', team: 'LAR', id: 'lar' },
+    ];
+    expect(matchPlayer({ name: 'Broncos D/ST', pos: 'DST' }, dstPool)?.id).toBe('den');
+    expect(matchPlayer({ name: 'Texans D/ST', pos: 'D/ST' }, dstPool)?.id).toBe('hou');
+    expect(matchPlayer({ name: 'Seahawks D/ST', pos: 'DEF' }, dstPool)?.id).toBe('sea');
+    expect(matchPlayer({ name: 'Rams D/ST', pos: 'DST', team: 'RAM' }, dstPool)?.id).toBe('lar');
+    expect(matchPlayer({ name: 'DEN', pos: 'DST', team: 'DEN' }, dstPool)?.id).toBe('den');
   });
 
   it('uses team as tiebreaker for duplicate names', () => {
