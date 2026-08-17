@@ -33,32 +33,61 @@ export function SeasonDraftBoard({ teams, totalTeams, draftType = 'snake' }: Sea
 
   const teamCount = teams.length || totalTeams || 12;
 
+  // Flatten all picks
+  const allPicks = useMemo(() => {
+    return teams.flatMap(t => t.draftPicks ?? []).filter(Boolean);
+  }, [teams]);
+
   // Determine max round
   const roundsCount = useMemo(() => {
     let max = 14;
-    for (const t of teams) {
-      for (const p of t.draftPicks ?? []) {
-        if (p.round && p.round > max) max = p.round;
+    for (const p of allPicks) {
+      if (p.round && p.round > max) max = p.round;
+      else if (p.pickNumber) {
+        const calcR = Math.ceil(p.pickNumber / teamCount);
+        if (calcR > max) max = calcR;
       }
     }
     return max;
-  }, [teams]);
+  }, [allPicks, teamCount]);
 
-  // Index picks by `${teamId}|${round}`
-  const picksByTeamAndRound = useMemo(() => {
-    const map = new Map<string, DraftPick>();
-    for (const team of teams) {
-      for (const pick of team.draftPicks ?? []) {
-        if (!pick) continue;
-        const round = pick.round || (pick.pickNumber ? Math.ceil(pick.pickNumber / teamCount) : 1);
-        const key = `${team.id}|${round}`;
-        if (!map.has(key)) {
-          map.set(key, { ...pick, round });
-        }
+  // 1. Sort teams by 1st Round draft pick order (1.01, 1.02, 1.03 ...)
+  const orderedTeams = useMemo(() => {
+    const r1Picks = allPicks.filter(p => p.round === 1 || (p.pickNumber && p.pickNumber <= teamCount));
+    if (r1Picks.length > 0) {
+      const orderMap = new Map<string, number>();
+      r1Picks.forEach(p => {
+        const slot = p.pickNumber ? ((p.pickNumber - 1) % teamCount) + 1 : 999;
+        orderMap.set(p.teamId, slot);
+      });
+      return [...teams].sort((a, b) => {
+        const slotA = orderMap.get(a.id) ?? 999;
+        const slotB = orderMap.get(b.id) ?? 999;
+        return slotA - slotB;
+      });
+    }
+    return teams;
+  }, [teams, allPicks, teamCount]);
+
+  // Map picks by overall pickNumber AND by teamId|round
+  const picksByPickNumber = useMemo(() => {
+    const map = new Map<number, DraftPick>();
+    for (const pick of allPicks) {
+      if (pick.pickNumber) {
+        map.set(pick.pickNumber, pick);
       }
     }
     return map;
-  }, [teams, teamCount]);
+  }, [allPicks]);
+
+  const picksByTeamAndRound = useMemo(() => {
+    const map = new Map<string, DraftPick>();
+    for (const pick of allPicks) {
+      const r = pick.round || (pick.pickNumber ? Math.ceil(pick.pickNumber / teamCount) : 1);
+      map.set(`${pick.teamId}|${r}`, { ...pick, round: r });
+    }
+    return map;
+  }, [allPicks, teamCount]);
 
   const legendPositions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
 
@@ -89,8 +118,8 @@ export function SeasonDraftBoard({ teams, totalTeams, draftType = 'snake' }: Sea
           className={styles.grid}
           style={{ gridTemplateColumns: `repeat(${teamCount}, minmax(110px, 1fr))` }}
         >
-          {/* Team Header Row */}
-          {teams.map((team, colIdx) => (
+          {/* Team Header Row: Columns in Draft Pick 1..N order */}
+          {orderedTeams.map((team, colIdx) => (
             <div key={team.id || colIdx} className={styles.teamHeaderCell}>
               <div className={styles.teamName} title={team.name}>
                 {team.name}
@@ -104,23 +133,24 @@ export function SeasonDraftBoard({ teams, totalTeams, draftType = 'snake' }: Sea
             const roundNum = rIdx + 1;
             const isReverseRound = draftType === 'snake' && roundNum % 2 === 0;
 
-            return teams.map((team, colIdx) => {
-              const pickKeyStr = `${team.id}|${roundNum}`;
-              const pick = picksByTeamAndRound.get(pickKeyStr);
+            return orderedTeams.map((team, colIdx) => {
+              // Calculate overall pick number for snake or linear draft
+              const slotInRound = isReverseRound ? teamCount - colIdx : colIdx + 1;
+              const overallPickNo = (roundNum - 1) * teamCount + slotInRound;
+
+              // Find pick by pick number or by team + round
+              let pick = picksByPickNumber.get(overallPickNo);
+              if (!pick) {
+                pick = picksByTeamAndRound.get(`${team.id}|${roundNum}`);
+              }
 
               const pos = pick?.player?.position || '';
               const posClass = POS_CLASS[pos] || '';
 
-              // Direction arrow
               const showArrow = draftType === 'snake';
               const arrowSymbol = isReverseRound ? '←' : '→';
 
-              let pickLabel = `#${pick?.pickNumber || (rIdx * teamCount + colIdx + 1)}`;
-              if (pick?.round && pick?.pickNumber) {
-                const slotInRound = ((pick.pickNumber - 1) % teamCount) + 1;
-                pickLabel = `${pick.round}.${slotInRound < 10 ? '0' : ''}${slotInRound}`;
-              }
-
+              const pickLabel = `${roundNum}.${slotInRound < 10 ? '0' : ''}${slotInRound}`;
               const byeWeek = (pick?.player as any)?.byeWeek ?? (pick?.player as any)?.bye;
 
               return (
