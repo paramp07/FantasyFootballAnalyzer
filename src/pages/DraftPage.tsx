@@ -19,11 +19,13 @@ export function DraftPage({ league }: DraftPageProps) {
   const hasPlatformData = league.teams.some(team => team.draftPicks && team.draftPicks.length > 0);
 
   // A live draft you logged by hand is read from localStorage and converted in
-  // memory; it never leaves the device. It stands in for (or beside) the
-  // platform's draft data, targeting the upcoming season the pool covers.
+  // memory; it never leaves the device. Only offer it if its season matches
+  // the selected league's season.
   const liveData = useMemo(() => {
     const session = loadCompletedLiveDraft(leagueKeyFor(league));
-    return session ? { ...liveDraftToTeams(session, POOL), season: session.config.season } : null;
+    if (!session) return null;
+    if (session.config.season !== league.season) return null;
+    return { ...liveDraftToTeams(session, POOL), season: session.config.season };
   }, [league]);
 
   // Both sources can exist (last season's real draft + this year's live log).

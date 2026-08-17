@@ -695,7 +695,7 @@ function App() {
           <Route path="/draft-grades" element={<ToolLanding content={TOOL_LANDINGS['draft-grades']} />} />
 
           {/* Data pages need a real connection; guests get bounced to Rankings. */}
-          <Route path="/draft" element={dataRoute(l => <DraftPage league={l} />)} />
+          <Route path="/draft" element={dataRoute(l => <DraftPage key={`${l.id}:${l.season}`} league={l} />)} />
           <Route path="/trades" element={dataRoute(l => <TradesPage league={l} />)} />
           <Route path="/waivers" element={dataRoute(l => <WaiversPage league={l} />)} />
           <Route path="/teams" element={dataRoute(l => <TeamsPage league={l} />)} />

@@ -49,14 +49,16 @@ export function SeasonDraftBoard({ teams, totalTeams, draftType = 'snake' }: Sea
     const map = new Map<string, DraftPick>();
     for (const team of teams) {
       for (const pick of team.draftPicks ?? []) {
-        const key = `${team.id}|${pick.round}`;
+        if (!pick) continue;
+        const round = pick.round || (pick.pickNumber ? Math.ceil(pick.pickNumber / teamCount) : 1);
+        const key = `${team.id}|${round}`;
         if (!map.has(key)) {
-          map.set(key, pick);
+          map.set(key, { ...pick, round });
         }
       }
     }
     return map;
-  }, [teams]);
+  }, [teams, teamCount]);
 
   const legendPositions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
 
