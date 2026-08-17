@@ -61,6 +61,12 @@
     return `${normalizeName(name)}|${basePos}`;
   }
 
+  function getNflLogoUrl(team) {
+    if (!team || team === 'FA') return null;
+    const t = team.toLowerCase().trim();
+    return `https://sleepercdn.com/images/v2/nfl/teams/${t}.png`;
+  }
+
   function updateSyncStatus(status, customTitle) {
     syncStatus = status;
     const dot = document.getElementById('ffa-sync-dot');
@@ -432,7 +438,7 @@
     renderPlayerList(container.querySelector('#ffa-player-list'), available);
   }
 
-  // Render Grouped Player List with Tiers & Injury Tags
+  // Render Grouped Player List with Tiers, Fraunces Serif Italic Names, PosBadges & Team Logos
   function renderPlayerList(listContainer, players) {
     if (!players.length) {
       listContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--ffa-bone-dim); font-size: 11px;">No available players match filters.</div>`;
@@ -461,6 +467,7 @@
       tierPlayers.forEach((p, idx) => {
         const isLastInTier = idx === tierPlayers.length - 1;
         const injury = getInjuryDetail(p);
+        const logoUrl = getNflLogoUrl(p.team);
 
         html += `
           <div class="ffa-player-row" data-id="${p.id}">
@@ -473,7 +480,12 @@
                   ${isLastInTier ? `<span class="ffa-tier-break-tag">LAST IN TIER</span>` : ''}
                   ${injury ? `<span class="ffa-injury-tag" data-injury-id="${p.id}">Q</span>` : ''}
                 </div>
-                <span class="ffa-player-sub">${p.team || 'FA'} · Bye ${p.bye ?? '-'}</span>
+                <div class="ffa-player-sub">
+                  ${logoUrl ? `<img src="${logoUrl}" alt="" class="ffa-team-logo" onError="this.style.display='none'" />` : ''}
+                  <span>${p.team || 'FA'}</span>
+                  <span>·</span>
+                  <span>Bye ${p.bye ?? '-'}</span>
+                </div>
               </div>
             </div>
             <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: var(--ffa-bone-dim);">
@@ -581,17 +593,19 @@
         </div>
         ${topRecs.map((p, idx) => {
           const injury = getInjuryDetail(p);
+          const logoUrl = getNflLogoUrl(p.team);
           return `
             <div class="ffa-rec-card">
               <div class="ffa-rec-header">
                 <div style="display: flex; align-items: center; gap: 6px;">
                   <span class="ffa-pos-badge ffa-pos-${p.pos}">${p.pos}${p.posRank || ''}</span>
-                  <span style="font-weight: 800; font-size: 13px;">${p.name}</span>
+                  <span style="font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 600; font-size: 14px;">${p.name}</span>
                   ${injury ? `<span class="ffa-injury-tag">Q</span>` : ''}
                 </div>
                 <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ffa-lime); font-weight: 700;">#${idx + 1} REC</span>
               </div>
               <div class="ffa-rec-reason">
+                ${logoUrl ? `<img src="${logoUrl}" alt="" class="ffa-team-logo" onError="this.style.display='none'" />` : ''}
                 ${p.team || 'FA'} · Tier ${p.tier || 1} · ${p.adp ? `ADP ${Math.round(p.adp)}` : 'Top Value'}
               </div>
             </div>
