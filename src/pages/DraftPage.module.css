@@ -28,15 +28,26 @@
 }
 .subtitle::before { content: '◆ THE BOARD · '; }
 
-.sourceToggle {
+.controlsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.sourceToggle,
+.viewToggle {
   display: inline-flex;
   gap: 0;
-  margin-bottom: 1.5rem;
   border: 2px solid var(--bone-dim);
 }
 
 .sourceOff,
-.sourceOn {
+.sourceOn,
+.toggleOff,
+.toggleOn {
   padding: 0.55rem 1.1rem;
   font-family: var(--font-mono);
   font-size: 0.72rem;
@@ -49,14 +60,23 @@
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
+
 .sourceOff + .sourceOff,
 .sourceOff + .sourceOn,
 .sourceOn + .sourceOff,
-.sourceOn + .sourceOn {
+.sourceOn + .sourceOn,
+.toggleOff + .toggleOff,
+.toggleOff + .toggleOn,
+.toggleOn + .toggleOff,
+.toggleOn + .toggleOn {
   border-left: 2px solid var(--bone-dim);
 }
-.sourceOff:hover { color: var(--bone); }
-.sourceOn {
+
+.sourceOff:hover,
+.toggleOff:hover { color: var(--bone); }
+
+.sourceOn,
+.toggleOn {
   background: var(--lime);
   color: var(--ink);
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { DraftTable } from '@/components';
+import { DraftTable, SeasonDraftBoard } from '@/components';
 import type { League } from '@/types';
 import { POOL } from '@/data/draftPool';
 import { leagueKeyFor } from '@/hooks/useDraftRoom';
@@ -13,6 +13,7 @@ interface DraftPageProps {
 }
 
 type Source = 'platform' | 'live';
+type ViewMode = 'table' | 'board';
 
 export function DraftPage({ league }: DraftPageProps) {
   const hasPlatformData = league.teams.some(team => team.draftPicks && team.draftPicks.length > 0);
@@ -29,12 +30,17 @@ export function DraftPage({ league }: DraftPageProps) {
   // Default to whichever is present, platform first; the toggle only appears
   // when there's an actual choice to make.
   const [source, setSource] = useState<Source>(() => (hasPlatformData ? 'platform' : 'live'));
-  const showToggle = hasPlatformData && liveData !== null;
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+
+  const showSourceToggle = hasPlatformData && liveData !== null;
   const active: Source = source === 'live' && liveData ? 'live' : hasPlatformData ? 'platform' : 'live';
 
   const draftType = active === 'live' && liveData ? liveData.draftType : league.draftType;
   const season = active === 'live' && liveData ? liveData.season : league.season;
   const hasData = active === 'live' ? liveData !== null : hasPlatformData;
+
+  const currentTeams = active === 'live' && liveData ? liveData.teams : league.teams;
+  const currentTotalTeams = active === 'live' && liveData ? liveData.totalTeams : league.totalTeams;
 
   return (
     <div className={styles.page}>
@@ -47,43 +53,68 @@ export function DraftPage({ league }: DraftPageProps) {
           </p>
         </div>
 
-        {showToggle && (
-          <div className={styles.sourceToggle} role="group" aria-label="Draft data source">
-            <button
-              type="button"
-              className={active === 'platform' ? styles.sourceOn : styles.sourceOff}
-              aria-pressed={active === 'platform'}
-              onClick={() => setSource('platform')}
-              title={`The draft ${league.platform} has on record for ${league.season}`}
-            >
-              Platform ({league.season})
-            </button>
-            <button
-              type="button"
-              className={active === 'live' ? styles.sourceOn : styles.sourceOff}
-              aria-pressed={active === 'live'}
-              onClick={() => setSource('live')}
-              title={`The ${liveData?.season} draft you logged live in the Draft Room`}
-            >
-              Live log ({liveData?.season})
-            </button>
+        {hasData && (
+          <div className={styles.controlsRow}>
+            {showSourceToggle ? (
+              <div className={styles.sourceToggle} role="group" aria-label="Draft data source">
+                <button
+                  type="button"
+                  className={active === 'platform' ? styles.sourceOn : styles.sourceOff}
+                  aria-pressed={active === 'platform'}
+                  onClick={() => setSource('platform')}
+                  title={`The draft ${league.platform} has on record for ${league.season}`}
+                >
+                  Platform ({league.season})
+                </button>
+                <button
+                  type="button"
+                  className={active === 'live' ? styles.sourceOn : styles.sourceOff}
+                  aria-pressed={active === 'live'}
+                  onClick={() => setSource('live')}
+                  title={`The ${liveData?.season} draft you logged live in the Draft Room`}
+                >
+                  Live log ({liveData?.season})
+                </button>
+              </div>
+            ) : (
+              <div />
+            )}
+
+            <div className={styles.viewToggle} role="group" aria-label="Draft view format">
+              <button
+                type="button"
+                className={viewMode === 'table' ? styles.toggleOn : styles.toggleOff}
+                aria-pressed={viewMode === 'table'}
+                onClick={() => setViewMode('table')}
+                title="View picks as a detailed analysis table"
+              >
+                📋 Table View
+              </button>
+              <button
+                type="button"
+                className={viewMode === 'board' ? styles.toggleOn : styles.toggleOff}
+                aria-pressed={viewMode === 'board'}
+                onClick={() => setViewMode('board')}
+                title="View picks in a full season draft board grid"
+              >
+                🏈 Draft Board
+              </button>
+            </div>
           </div>
         )}
 
         {hasData ? (
-          active === 'live' && liveData ? (
-            <DraftTable
-              teams={liveData.teams}
-              totalTeams={liveData.totalTeams}
-              draftType={liveData.draftType}
-              scoringType={league.scoringType}
-              rosterSlots={league.rosterSlots}
+          viewMode === 'board' ? (
+            <SeasonDraftBoard
+              teams={currentTeams}
+              totalTeams={currentTotalTeams}
+              draftType={draftType}
             />
           ) : (
             <DraftTable
-              teams={league.teams}
-              totalTeams={league.totalTeams}
-              draftType={league.draftType}
+              teams={currentTeams}
+              totalTeams={currentTotalTeams}
+              draftType={draftType}
               scoringType={league.scoringType}
               rosterSlots={league.rosterSlots}
             />

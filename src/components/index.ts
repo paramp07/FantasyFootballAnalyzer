@@ -13,4 +13,6 @@ export { TeamLink } from './TeamLink';
 export { LuckIcon } from './LuckIcon';
 export { CustomRankingsModal } from './CustomRankingsModal';
 export { LiveDraftDetectedBanner } from './LiveDraftDetectedBanner';
+export { SeasonDraftBoard } from './SeasonDraftBoard';
+
 
