@@ -34,6 +34,10 @@
 
   let activeInjuryPopover = null;
 
+  // Sync status tracking
+  let syncStatus = 'loading'; // 'loading' | 'synced' | 'offline'
+  let lastMessageTime = 0;
+
   // Track drafted players
   const draftedPlayerKeys = new Set();
   const draftedIds = new Set();
@@ -54,6 +58,28 @@
     const basePos = (cleanPos === 'DEF' || cleanPos === 'D/ST') ? 'DST' : cleanPos;
     return `${normalizeName(name)}|${basePos}`;
   }
+
+  function updateSyncStatus(status, customTitle) {
+    syncStatus = status;
+    const dot = document.getElementById('ffa-sync-dot');
+    if (!dot) return;
+
+    dot.className = `ffa-sync-dot ffa-sync-${status}`;
+    if (status === 'synced') {
+      dot.title = customTitle || 'Live sync active · Synchronized with ESPN draft room';
+    } else if (status === 'loading') {
+      dot.title = customTitle || 'Connecting to ESPN draft feed...';
+    } else {
+      dot.title = customTitle || 'Sync offline · Waiting for ESPN draft room message';
+    }
+  }
+
+  // Health check timer for sync status
+  setInterval(() => {
+    if (syncStatus === 'synced' && lastMessageTime > 0 && Date.now() - lastMessageTime > 15000) {
+      updateSyncStatus('offline', 'Sync offline · No snapshot received in 15 seconds');
+    }
+  }, 4000);
 
   function isPlayerDrafted(p) {
     if (
@@ -96,6 +122,8 @@
   // Auto Load ESPN League Data using URL parameters & Browser Session Cookies
   async function autoLoadESPNLeague() {
     try {
+      updateSyncStatus('loading', 'Connecting to ESPN draft feed...');
+
       const q = new URLSearchParams(window.location.search);
       const leagueId = q.get('leagueId');
       const seasonId = q.get('seasonId') || new Date().getFullYear();
@@ -110,7 +138,10 @@
       const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${seasonId}/segments/0/leagues/${leagueId}?view=mRoster&view=mSettings&view=mTeam&view=mDraftDetail`;
 
       const resp = await fetch(url, { credentials: 'include' });
-      if (!resp.ok) return;
+      if (!resp.ok) {
+        updateSyncStatus('offline', 'Failed to fetch league data from ESPN');
+        return;
+      }
 
       const data = await resp.json();
       if (!data) return;
@@ -123,7 +154,6 @@
           abbrev: t.abbrev,
         }));
 
-        // Extract rostered players
         data.teams.forEach(t => {
           if (t.roster && Array.isArray(t.roster.entries)) {
             t.roster.entries.forEach(entry => {
@@ -147,6 +177,7 @@
       }
 
       console.log(`[FFA Assistant] ESPN League #${leagueId} loaded with ${draftedIds.size} drafted players.`);
+      updateSyncStatus('synced', 'Live sync active · ESPN League loaded');
       renderContent();
     } catch (err) {
       console.log('[FFA Assistant] League auto-load notice:', err.message);
@@ -161,7 +192,6 @@
     box.id = 'ffa-assistant-overlay';
     box.className = `ffa-assistant-box ${isMinimized ? 'ffa-minimized' : ''}`;
 
-    // Saved position (if user moved it previously)
     const savedPos = localStorage.getItem('ffa_assistant_pos');
     if (savedPos) {
       try {
@@ -178,6 +208,7 @@
     box.innerHTML = `
       <div class="ffa-header" id="ffa-assistant-header">
         <div class="ffa-header-title">
+          <span class="ffa-sync-dot ffa-sync-loading" id="ffa-sync-dot" title="Connecting to ESPN draft feed..."></span>
           <span class="ffa-logo-badge">FFA</span>
           <span>DRAFT ASSISTANT</span>
         </div>
@@ -219,6 +250,7 @@
       });
     });
 
+    updateSyncStatus(syncStatus);
     renderContent();
   }
 
@@ -288,10 +320,8 @@
   function renderAvailableTab(container) {
     const pool = window.FFA_DRAFT_POOL || [];
 
-    // Filter available players
     let available = pool.filter(p => !isPlayerDrafted(p));
 
-    // Position filter
     if (activePos !== 'ALL') {
       if (activePos === 'FLEX') {
         available = available.filter(p => FLEX_POS.has(p.pos));
@@ -300,7 +330,6 @@
       }
     }
 
-    // Search query filter
     if (searchQuery.trim()) {
       const q = normalizeName(searchQuery);
       available = available.filter(p => normalizeName(p.name).includes(q) || (p.team && p.team.toLowerCase().includes(q)));
@@ -345,7 +374,6 @@
       return;
     }
 
-    // Group players by tier
     const tiers = new Map();
     players.forEach(p => {
       const t = p.tier || 1;
@@ -540,6 +568,9 @@
   // Receive Live Messages from ESPN Injector (inject.js)
   window.addEventListener('message', (event) => {
     if (!event.data || event.data.source !== 'gridiron-espn') return;
+
+    lastMessageTime = Date.now();
+    updateSyncStatus('synced', 'Live sync active · Synchronized with ESPN draft room');
 
     const payload = event.data.payload;
     if (!payload) return;
