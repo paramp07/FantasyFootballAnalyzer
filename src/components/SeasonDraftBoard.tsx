@@ -28,6 +28,28 @@ function formatShortName(name: string, pos: string, team: string): string {
   return `${name[0]}. ${name.slice(space + 1)}`;
 }
 
+function getArrowSymbol(roundNum: number, colIdx: number, teamCount: number, roundsCount: number): string {
+  const isOddRound = roundNum % 2 !== 0;
+
+  if (isOddRound) {
+    if (colIdx === teamCount - 1) {
+      return roundNum === roundsCount ? '' : '↓';
+    }
+    if (colIdx === 0 && roundNum > 1) {
+      return '↓';
+    }
+    return '→';
+  } else {
+    if (colIdx === teamCount - 1) {
+      return '↓';
+    }
+    if (colIdx === 0) {
+      return roundNum === roundsCount ? '' : '↓';
+    }
+    return '←';
+  }
+}
+
 export function SeasonDraftBoard({ teams, totalTeams, draftType = 'snake' }: SeasonDraftBoardProps) {
   const { scrollerRef, handleMouseDown, handleTouchStart, style: resizableStyle } = useResizableBoard(380);
 
@@ -148,7 +170,7 @@ export function SeasonDraftBoard({ teams, totalTeams, draftType = 'snake' }: Sea
               const posClass = POS_CLASS[pos] || '';
 
               const showArrow = draftType === 'snake';
-              const arrowSymbol = isReverseRound ? '←' : '→';
+              const arrowSymbol = getArrowSymbol(roundNum, colIdx, teamCount, roundsCount);
 
               const pickLabel = `${roundNum}.${slotInRound < 10 ? '0' : ''}${slotInRound}`;
               const byeWeek = (pick?.player as any)?.byeWeek ?? (pick?.player as any)?.bye;
