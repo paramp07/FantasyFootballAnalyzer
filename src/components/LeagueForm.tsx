@@ -71,6 +71,8 @@ interface ExtensionProbe {
   installed: true;
   espnS2?: string;
   swid?: string;
+  leagueId?: string;
+  seasonId?: string;
 }
 
 // Probe the companion extension. Resolves null when the extension isn't
@@ -98,11 +100,13 @@ function probeExtension(): Promise<ExtensionProbe | null> {
         settled = true;
         clearTimeout(timer);
         window.removeEventListener('message', handleMessage);
-        const { espn_s2, swid, espnS2 } = event.data.cookies || {};
+        const { espn_s2, swid, espnS2, leagueId, seasonId } = event.data.cookies || {};
         resolve({
           installed: true,
           espnS2: espn_s2 || espnS2,
           swid: swid,
+          leagueId: leagueId,
+          seasonId: seasonId,
         });
       }
     };
@@ -308,6 +312,9 @@ export function LeagueForm({ onSubmit, isLoading, onPlatformChange }: LeagueForm
       }
       setEspnS2(normalizeEspnS2(probe.espnS2));
       setSwid(normalizeSwid(probe.swid));
+      if (probe.leagueId) {
+        setLeagueId(probe.leagueId.trim());
+      }
     } finally {
       setExtensionBusy(false);
     }

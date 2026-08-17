@@ -116,10 +116,33 @@ async function getEspnCookies() {
     const swidCookie =
       (await chrome.cookies.get({ url: 'https://www.espn.com', name: 'SWID' })) ||
       (await chrome.cookies.get({ url: 'https://www.espn.com', name: 'swid' }))
+
+    let detectedLeagueId = null
+    let detectedSeasonId = null
+
+    try {
+      const tabs = await chrome.tabs.query({ url: '*://fantasy.espn.com/*' })
+      for (const tab of tabs) {
+        if (!tab.url) continue
+        const urlObj = new URL(tab.url)
+        const lId = urlObj.searchParams.get('leagueId')
+        if (lId) {
+          detectedLeagueId = lId
+          detectedSeasonId = urlObj.searchParams.get('seasonId')
+          console.log('[gridiron background] Auto-detected ESPN tab with leagueId:', lId, 'URL:', tab.url)
+          break
+        }
+      }
+    } catch (e) {
+      console.log('[gridiron background] Tab query error:', e)
+    }
+
     return {
       installed: true,
       espnS2: s2Cookie ? s2Cookie.value : undefined,
       swid: swidCookie ? swidCookie.value : undefined,
+      leagueId: detectedLeagueId || undefined,
+      seasonId: detectedSeasonId || undefined,
     }
   } catch {
     return { installed: true }

@@ -78,12 +78,92 @@
       "128": "icons/icon128.png",
       "16": "icons/icon16.png",
       "48": "icons/icon48.png"
+{
+   "action": {
+      "default_icon": {
+         "128": "icons/icon128.png",
+         "16": "icons/icon16.png",
+         "48": "icons/icon48.png"
+      },
+      "default_popup": "popup.html",
+      "default_title": "FFA - Helper — draft sync status"
+   },
+   "background": {
+      "service_worker": "background.js"
+   },
+   "content_scripts": [ {
+      "js": [ "inject.js" ],
+      "matches": [ "https://fantasy.espn.com/football/*draft*", "https://fantasy.espn.com/football/*mock*" ],
+      "run_at": "document_start",
+      "world": "MAIN"
+   }, {
+      "js": [ "content.js" ],
+      "matches": [ "https://fantasy.espn.com/football/*draft*", "https://fantasy.espn.com/football/*mock*" ],
+      "run_at": "document_idle"
+   }, {
+      "css": [ "injected_assistant.css" ],
+      "js": [ "ffa_data.js", "injected_assistant.js" ],
+      "matches": [ "https://fantasy.espn.com/football/*draft*", "https://fantasy.espn.com/football/*mock*" ],
+      "run_at": "document_idle"
+   }, {
+
+      "js": [ "yahoo_inject.js" ],
+      "matches": [ "https://football.fantasysports.yahoo.com/draftclient/*" ],
+      "run_at": "document_start",
+      "world": "MAIN"
+   }, {
+      "js": [ "content.js" ],
+      "matches": [ "https://football.fantasysports.yahoo.com/draftclient/*" ],
+      "run_at": "document_idle"
+   }, {
+      "js": [ "yahoo_league.js" ],
+      "matches": [ "https://football.fantasysports.yahoo.com/f1/*" ],
+      "run_at": "document_idle",
+      "world": "MAIN"
+   }, {
+      "js": [ "yahoo_league_bridge.js" ],
+      "matches": [ "https://football.fantasysports.yahoo.com/f1/*" ],
+      "run_at": "document_idle"
+   }, {
+      "js": [ "espn_league.js" ],
+      "matches": [ "https://fantasy.espn.com/football/league*", "https://fantasy.espn.com/football/team*" ],
+      "run_at": "document_idle"
+   }, {
+      "js": [ "content-scripts/relay.js" ],
+      "matches": [
+         "http://localhost/*",
+         "http://localhost:*/*",
+         "https://krool.github.io/*",
+         "https://fantasyfootballanalyzer.app/*"
+      ],
+      "run_at": "document_start"
+   } ],
+   "description": "Syncs live ESPN or Yahoo drafts to FFA (Fantasy Football Analyzer) for pick-by-pick analysis.",
+   "externally_connectable": {
+      "matches": [
+         "http://localhost/*",
+         "http://localhost:*/*",
+         "https://krool.github.io/*",
+         "https://fantasyfootballanalyzer.app/*"
+      ]
+   },
+   "host_permissions": [
+      "http://localhost:8000/*",
+      "https://gridiron-api-1t5r.onrender.com/*",
+      "https://lm-api-reads.fantasy.espn.com/*",
+      "https://*.espn.com/*",
+      "https://*.go.com/*"
+   ],
+   "icons": {
+      "128": "icons/icon128.png",
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
    },
    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAujuFySbZxe9R7oKuDKZJSiDnEELG4w0eZKEptbo5k35M0M9cWw9sasspDz/HyQc6yg3Up9y41kKwXRr0S4LC+eHoTuE70CCLKNjj7FoGlXYfnNYiVjEtk7F+5AOtzX5416WfMFbBqm5inqIOIrb8r29JltUiylq6gwAxIN3X+ykpoifkR+G2Lj0Ff1boB7SJD+EjAVwvAPsA48YiQ+Qwfens8aOMyRLQXsSZA5xRG/BCyL78DVpJgE8GXoZc4g25wuD5fo0H2yzF3xHXMEpD4Y5OqLVW6d4Zqpx53FncOkdZy2zIy7Z4LjWf1+UUFPx1YK2z5RAdHCzeUuk33byfCQIDAQAB",
    "manifest_version": 3,
    "name": "FFA - Helper",
    "options_page": "options.html",
-   "permissions": [ "storage", "cookies" ],
+   "permissions": [ "storage", "cookies", "tabs" ],
    "update_url": "https://clients2.google.com/service/update2/crx",
-   "version": "0.9.2"
+   "version": "0.9.3"
 }
