@@ -6,17 +6,19 @@
   function isDraftPage() {
     const path = window.location.pathname.toLowerCase();
     const search = window.location.search.toLowerCase();
-    return (
+    const isMatch = (
       path.includes('/draft') ||
       path.includes('/mock') ||
       search.includes('leagueid=') ||
       document.querySelector('.draft-room') !== null ||
       document.querySelector('[class*="draft"]') !== null
     );
+    console.log('[FFA Assistant] Context check -> path:', path, '| search:', search, '| isMatch:', isMatch);
+    return isMatch;
   }
 
   if (!isDraftPage()) {
-    console.log('[FFA Assistant] Not a draft page. Overlay dormant.');
+    console.log('[FFA Assistant] Not an ESPN draft page. Injected overlay dormant.');
     return;
   }
 
@@ -72,11 +74,13 @@
     } else {
       dot.title = customTitle || 'Sync offline · Waiting for ESPN draft room message';
     }
+    console.log('[FFA Assistant] Sync status updated ->', status, '| Title:', dot.title);
   }
 
   // Health check timer for sync status
   setInterval(() => {
     if (syncStatus === 'synced' && lastMessageTime > 0 && Date.now() - lastMessageTime > 15000) {
+      console.log('[FFA Assistant] No live message received in 15 seconds. Transitioning status to offline.');
       updateSyncStatus('offline', 'Sync offline · No snapshot received in 15 seconds');
     }
   }, 4000);
@@ -129,21 +133,30 @@
       const seasonId = q.get('seasonId') || new Date().getFullYear();
       const myTeamId = q.get('teamId');
 
+      console.log('[FFA Assistant] URL Params parsed -> leagueId:', leagueId, '| seasonId:', seasonId, '| teamId:', myTeamId);
+
       if (myTeamId) mySlot = Number(myTeamId);
 
-      if (!leagueId) return;
+      if (!leagueId) {
+        console.log('[FFA Assistant] No leagueId found in URL search params. Waiting for live inject messages...');
+        return;
+      }
 
-      console.log(`[FFA Assistant] Auto-loading ESPN League #${leagueId} (Season ${seasonId})...`);
+      console.log(`[FFA Assistant] Auto-fetching ESPN League #${leagueId} (Season ${seasonId}) with browser cookies...`);
 
       const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${seasonId}/segments/0/leagues/${leagueId}?view=mRoster&view=mSettings&view=mTeam&view=mDraftDetail`;
 
       const resp = await fetch(url, { credentials: 'include' });
+      console.log('[FFA Assistant] ESPN lm-api-reads HTTP response status:', resp.status);
+
       if (!resp.ok) {
         updateSyncStatus('offline', 'Failed to fetch league data from ESPN');
         return;
       }
 
       const data = await resp.json();
+      console.log('[FFA Assistant] ESPN League API data received:', data);
+
       if (!data) return;
 
       if (Array.isArray(data.teams)) {
@@ -176,17 +189,68 @@
         });
       }
 
-      console.log(`[FFA Assistant] ESPN League #${leagueId} loaded with ${draftedIds.size} drafted players.`);
+      console.log(`[FFA Assistant] ESPN League #${leagueId} loaded successfully with ${draftedIds.size} drafted player IDs.`);
       updateSyncStatus('synced', 'Live sync active · ESPN League loaded');
       renderContent();
     } catch (err) {
-      console.log('[FFA Assistant] League auto-load notice:', err.message);
+      console.log('[FFA Assistant] League auto-load error:', err);
+    }
+  }
+
+  // Connect to WebSocket relay server fallback if running
+  function connectWebSocketRelay() {
+    try {
+      console.log('[FFA Assistant] Attempting connection to WebSocket relay (ws://localhost:8000/ws)...');
+      const ws = new WebSocket('ws://localhost:8000/ws');
+
+      ws.onopen = () => {
+        console.log('[FFA Assistant] Connected to WebSocket relay server!');
+        lastMessageTime = Date.now();
+        updateSyncStatus('synced', 'Live sync active · Connected to WebSocket relay');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          console.log('[FFA Assistant] WebSocket message received:', msg);
+          if (msg.type === 'picks_update' || msg.picks) {
+            const picks = msg.picks || msg.payload?.picks || [];
+            picks.forEach(pick => {
+              const id = pick.player_id || pick.playerId || pick.id;
+              if (id) draftedIds.add(String(id));
+              const name = pick.player_name || pick.playerName || pick.name;
+              const pos = pick.position || pick.pos;
+              if (name) {
+                draftedPlayerKeys.add(getMatchKey(name, pos));
+                draftedPlayerKeys.add(normalizeName(name));
+              }
+            });
+            lastMessageTime = Date.now();
+            updateSyncStatus('synced', 'Live sync active · Pick update received');
+            renderContent();
+          }
+        } catch (e) {
+          console.log('[FFA Assistant] WebSocket parse error:', e);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.log('[FFA Assistant] WebSocket relay not active (ignoring):', err);
+      };
+
+      ws.onclose = () => {
+        console.log('[FFA Assistant] WebSocket relay disconnected.');
+      };
+    } catch (err) {
+      console.log('[FFA Assistant] WebSocket init error:', err);
     }
   }
 
   // Inject DOM Widget Box
   function injectWidget() {
     if (document.getElementById('ffa-assistant-overlay')) return;
+
+    console.log('[FFA Assistant] Injecting DOM overlay box...');
 
     const box = document.createElement('div');
     box.id = 'ffa-assistant-overlay';
@@ -240,6 +304,7 @@
       box.classList.toggle('ffa-minimized', isMinimized);
       minimizeBtn.textContent = isMinimized ? '+' : '—';
       minimizeBtn.title = isMinimized ? 'Expand' : 'Minimize';
+      console.log('[FFA Assistant] Minimize toggled -> isMinimized:', isMinimized);
     });
 
     box.querySelectorAll('.ffa-tab-btn').forEach(btn => {
@@ -567,12 +632,17 @@
 
   // Receive Live Messages from ESPN Injector (inject.js)
   window.addEventListener('message', (event) => {
-    if (!event.data || event.data.source !== 'gridiron-espn') return;
+    if (!event.data) return;
+
+    const src = event.data.source;
+    if (src !== 'gridiron-espn-sync' && src !== 'gridiron-espn') return;
+
+    console.log('[FFA Assistant] Window message event received:', src, event.data);
 
     lastMessageTime = Date.now();
     updateSyncStatus('synced', 'Live sync active · Synchronized with ESPN draft room');
 
-    const payload = event.data.payload;
+    const payload = event.data.snapshot || event.data.payload;
     if (!payload) return;
 
     if (payload.my_slot) mySlot = payload.my_slot;
@@ -580,10 +650,11 @@
 
     if (Array.isArray(payload.picks)) {
       picksData = payload.picks;
+      console.log(`[FFA Assistant] Received ${payload.picks.length} picks from snapshot.`);
+
       payload.picks.forEach(pick => {
-        if (pick.player_id || pick.playerId) {
-          draftedIds.add(String(pick.player_id || pick.playerId));
-        }
+        const id = pick.player_id || pick.playerId || pick.id;
+        if (id) draftedIds.add(String(id));
         const name = pick.player_name || pick.playerName || pick.name;
         const pos = pick.position || pick.pos;
         if (name) {
@@ -597,6 +668,9 @@
 
   // Auto Load ESPN League data on startup
   autoLoadESPNLeague();
+
+  // Connect WebSocket relay fallback
+  connectWebSocketRelay();
 
   // Inject when DOM is ready
   if (document.readyState === 'loading') {
