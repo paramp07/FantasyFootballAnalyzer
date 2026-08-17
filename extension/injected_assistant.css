@@ -266,6 +266,16 @@
   overflow-y: auto;
   padding: 0;
   background: var(--ffa-ink);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ffa-player-list::-webkit-scrollbar,
+.ffa-rec-list::-webkit-scrollbar,
+.ffa-roster-view::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Tier Header Divider */
@@ -497,6 +507,8 @@
   flex-direction: column;
   gap: 8px;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .ffa-rec-card {
@@ -527,6 +539,8 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .ffa-roster-group {
