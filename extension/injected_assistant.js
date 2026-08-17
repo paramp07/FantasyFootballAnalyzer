@@ -1,19 +1,42 @@
 // FFA Injected Draft Assistant for ESPN
 ;(() => {
   if (window.__ffaAssistantInjected) return;
-  window.__ffaAssistantInjected = true;
 
-  console.log('[FFA Assistant] Initializing injected overlay on ESPN...');
+  // Only run on draft or mock draft pages
+  function isDraftPage() {
+    const path = window.location.pathname.toLowerCase();
+    const search = window.location.search.toLowerCase();
+    return (
+      path.includes('/draft') ||
+      path.includes('/mock') ||
+      search.includes('leagueid=') ||
+      document.querySelector('.draft-room') !== null ||
+      document.querySelector('[class*="draft"]') !== null
+    );
+  }
+
+  if (!isDraftPage()) {
+    console.log('[FFA Assistant] Not a draft page. Overlay dormant.');
+    return;
+  }
+
+  window.__ffaAssistantInjected = true;
+  console.log('[FFA Assistant] Initializing injected overlay on ESPN Draft Room...');
 
   // State
   let activeTab = 'available'; // 'available' | 'recommended' | 'roster'
   let activePos = 'ALL';
   let searchQuery = '';
-  let isMinimized = localStorage.getItem('ffa_assistant_minimized') === 'true';
+
+  // Default MINIMIZED (true) unless user explicitly saved 'false' in localStorage
+  const savedMin = localStorage.getItem('ffa_assistant_minimized');
+  let isMinimized = savedMin === null ? true : savedMin === 'true';
+
   let activeInjuryPopover = null;
 
   // Track drafted players
   const draftedPlayerKeys = new Set();
+  const draftedIds = new Set();
   let mySlot = null;
   let teamsData = [];
   let picksData = [];
@@ -32,6 +55,31 @@
     return `${normalizeName(name)}|${basePos}`;
   }
 
+  function isPlayerDrafted(p) {
+    if (
+      (p.id && draftedIds.has(String(p.id))) ||
+      (p.espnId && draftedIds.has(String(p.espnId))) ||
+      (p.sleeperId && draftedIds.has(String(p.sleeperId)))
+    ) {
+      return true;
+    }
+    const k1 = getMatchKey(p.name, p.pos);
+    const k2 = normalizeName(p.name);
+    if (draftedPlayerKeys.has(k1) || draftedPlayerKeys.has(k2)) {
+      return true;
+    }
+    if (p.pos === 'DST' || p.pos === 'DEF') {
+      const pClean = normalizeName(p.name).replace(/(dst|defense|def)/gi, '');
+      for (const key of draftedPlayerKeys) {
+        const keyClean = key.replace(/(dst|defense|def)/gi, '');
+        if (keyClean && pClean && (keyClean.includes(pClean) || pClean.includes(keyClean))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   // Lookup injury data
   function getInjuryDetail(player) {
     const injuries = window.FFA_INJURY_DATA || [];
@@ -45,7 +93,67 @@
     return injuries.find(i => normalizeName(i.playerName) === key) || null;
   }
 
-  // Inject DOM Widget
+  // Auto Load ESPN League Data using URL parameters & Browser Session Cookies
+  async function autoLoadESPNLeague() {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const leagueId = q.get('leagueId');
+      const seasonId = q.get('seasonId') || new Date().getFullYear();
+      const myTeamId = q.get('teamId');
+
+      if (myTeamId) mySlot = Number(myTeamId);
+
+      if (!leagueId) return;
+
+      console.log(`[FFA Assistant] Auto-loading ESPN League #${leagueId} (Season ${seasonId})...`);
+
+      const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${seasonId}/segments/0/leagues/${leagueId}?view=mRoster&view=mSettings&view=mTeam&view=mDraftDetail`;
+
+      const resp = await fetch(url, { credentials: 'include' });
+      if (!resp.ok) return;
+
+      const data = await resp.json();
+      if (!data) return;
+
+      if (Array.isArray(data.teams)) {
+        teamsData = data.teams.map(t => ({
+          id: t.id,
+          slot: t.id,
+          name: t.location && t.nickname ? `${t.location} ${t.nickname}` : t.name || `Team ${t.id}`,
+          abbrev: t.abbrev,
+        }));
+
+        // Extract rostered players
+        data.teams.forEach(t => {
+          if (t.roster && Array.isArray(t.roster.entries)) {
+            t.roster.entries.forEach(entry => {
+              const pid = entry.playerId || entry.playerPoolEntry?.player?.id;
+              if (pid) draftedIds.add(String(pid));
+              const pName = entry.playerPoolEntry?.player?.fullName;
+              const pPos = entry.playerPoolEntry?.player?.defaultPositionId;
+              if (pName) {
+                draftedPlayerKeys.add(normalizeName(pName));
+                draftedPlayerKeys.add(getMatchKey(pName, pPos));
+              }
+            });
+          }
+        });
+      }
+
+      if (data.draftDetail && Array.isArray(data.draftDetail.picks)) {
+        data.draftDetail.picks.forEach(pick => {
+          if (pick.playerId) draftedIds.add(String(pick.playerId));
+        });
+      }
+
+      console.log(`[FFA Assistant] ESPN League #${leagueId} loaded with ${draftedIds.size} drafted players.`);
+      renderContent();
+    } catch (err) {
+      console.log('[FFA Assistant] League auto-load notice:', err.message);
+    }
+  }
+
+  // Inject DOM Widget Box
   function injectWidget() {
     if (document.getElementById('ffa-assistant-overlay')) return;
 
@@ -53,7 +161,7 @@
     box.id = 'ffa-assistant-overlay';
     box.className = `ffa-assistant-box ${isMinimized ? 'ffa-minimized' : ''}`;
 
-    // Saved position
+    // Saved position (if user moved it previously)
     const savedPos = localStorage.getItem('ffa_assistant_pos');
     if (savedPos) {
       try {
@@ -63,7 +171,7 @@
         box.style.bottom = 'auto';
         box.style.right = 'auto';
       } catch (e) {
-        /* fallback to default CSS bottom/right */
+        /* fallback to CSS bottom-right */
       }
     }
 
@@ -91,10 +199,8 @@
 
     document.body.appendChild(box);
 
-    // Setup drag logic
     setupDrag(box);
 
-    // Setup event handlers
     const minimizeBtn = box.querySelector('#ffa-btn-minimize');
     minimizeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -181,13 +287,9 @@
   // Available Players & Tiers Tab
   function renderAvailableTab(container) {
     const pool = window.FFA_DRAFT_POOL || [];
-    
+
     // Filter available players
-    let available = pool.filter(p => {
-      const k1 = getMatchKey(p.name, p.pos);
-      const k2 = normalizeName(p.name);
-      return !draftedPlayerKeys.has(k1) && !draftedPlayerKeys.has(k2);
-    });
+    let available = pool.filter(p => !isPlayerDrafted(p));
 
     // Position filter
     if (activePos !== 'ALL') {
@@ -220,7 +322,6 @@
       </div>
     `;
 
-    // Bind filter clicks
     container.querySelectorAll('.ffa-pos-chip').forEach(chip => {
       chip.addEventListener('click', () => {
         activePos = chip.dataset.pos;
@@ -228,7 +329,6 @@
       });
     });
 
-    // Bind search input
     const searchInput = container.querySelector('#ffa-search-input');
     searchInput.addEventListener('input', (e) => {
       searchQuery = e.target.value;
@@ -293,7 +393,6 @@
 
     listContainer.innerHTML = html;
 
-    // Attach injury tag hover events
     listContainer.querySelectorAll('.ffa-injury-tag').forEach(tag => {
       tag.addEventListener('mouseenter', (e) => {
         const playerId = tag.dataset.injuryId;
@@ -355,7 +454,6 @@
     document.body.appendChild(pop);
     activeInjuryPopover = pop;
 
-    // Position popover above/below target
     const rect = targetElem.getBoundingClientRect();
     const popRect = pop.getBoundingClientRect();
 
@@ -379,11 +477,7 @@
   // Recommended Picks Tab
   function renderRecommendedTab(container) {
     const pool = window.FFA_DRAFT_POOL || [];
-    const available = pool.filter(p => {
-      const k1 = getMatchKey(p.name, p.pos);
-      const k2 = normalizeName(p.name);
-      return !draftedPlayerKeys.has(k1) && !draftedPlayerKeys.has(k2);
-    });
+    const available = pool.filter(p => !isPlayerDrafted(p));
 
     const topRecs = available.slice(0, 5);
 
@@ -445,26 +539,33 @@
 
   // Receive Live Messages from ESPN Injector (inject.js)
   window.addEventListener('message', (event) => {
-    if (!event.data || event.data.source !== 'gridiron_espn') return;
+    if (!event.data || event.data.source !== 'gridiron-espn') return;
 
     const payload = event.data.payload;
     if (!payload) return;
 
     if (payload.my_slot) mySlot = payload.my_slot;
-    if (payload.teams) teamsData = payload.teams;
+    if (Array.isArray(payload.teams) && payload.teams.length) teamsData = payload.teams;
 
     if (Array.isArray(payload.picks)) {
       picksData = payload.picks;
-      draftedPlayerKeys.clear();
       payload.picks.forEach(pick => {
-        if (pick.player_name) {
-          draftedPlayerKeys.add(getMatchKey(pick.player_name, pick.position));
-          draftedPlayerKeys.add(normalizeName(pick.player_name));
+        if (pick.player_id || pick.playerId) {
+          draftedIds.add(String(pick.player_id || pick.playerId));
+        }
+        const name = pick.player_name || pick.playerName || pick.name;
+        const pos = pick.position || pick.pos;
+        if (name) {
+          draftedPlayerKeys.add(getMatchKey(name, pos));
+          draftedPlayerKeys.add(normalizeName(name));
         }
       });
       renderContent();
     }
   });
+
+  // Auto Load ESPN League data on startup
+  autoLoadESPNLeague();
 
   // Inject when DOM is ready
   if (document.readyState === 'loading') {
