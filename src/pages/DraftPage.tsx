@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Table, Grid } from 'lucide-react';
 import { DraftTable, SeasonDraftBoard } from '@/components';
 import type { League } from '@/types';
 import { POOL } from '@/data/draftPool';
@@ -90,7 +91,8 @@ export function DraftPage({ league }: DraftPageProps) {
                 onClick={() => setViewMode('table')}
                 title="View picks as a detailed analysis table"
               >
-                📋 Table View
+                <Table size={14} style={{ marginRight: '0.4rem', verticalAlign: 'middle' }} />
+                Table View
               </button>
               <button
                 type="button"
@@ -99,7 +101,8 @@ export function DraftPage({ league }: DraftPageProps) {
                 onClick={() => setViewMode('board')}
                 title="View picks in a full season draft board grid"
               >
-                🏈 Draft Board
+                <Grid size={14} style={{ marginRight: '0.4rem', verticalAlign: 'middle' }} />
+                Draft Board
               </button>
             </div>
           </div>

@@ -64,14 +64,8 @@ function getArrowDirection(roundNum: number, colIdx: number, teamCount: number, 
     if (colIdx === teamCount - 1) {
       return roundNum === roundsCount ? null : 'down';
     }
-    if (colIdx === 0 && roundNum > 1) {
-      return 'down';
-    }
     return 'right';
   } else {
-    if (colIdx === teamCount - 1) {
-      return 'down';
-    }
     if (colIdx === 0) {
       return roundNum === roundsCount ? null : 'down';
     }

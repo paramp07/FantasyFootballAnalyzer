@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Shield } from 'lucide-react';
 import { LeagueForm } from '@/components';
 import { HomeHero } from './HomeHero';
 import { HomeManifesto } from './HomeManifesto';
@@ -101,10 +102,10 @@ export function HomePage({ onLoadLeague, onGuest, isLoading, error, progress }: 
         <button
           className={styles.secretButton}
           onClick={handleSecretClick}
-          title="🐊"
+          title="Secret loader"
           aria-label="Secret league loader"
         >
-          🐊
+          <Shield size={14} style={{ color: 'var(--bone-dim)' }} />
         </button>
       )}
     </div>

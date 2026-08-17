@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Volume2, VolumeX, Zap } from 'lucide-react';
 import type { League } from '@/types';
 import type { PoolPlayer } from '@/types/draft';
 import { useDraftQueue } from '@/hooks/useDraftQueue';
@@ -585,7 +586,7 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
         aria-pressed={isMuted}
         title={isMuted ? 'Sounds are off. Click to unmute.' : 'Mute all app sounds'}
       >
-        {isMuted ? '🔇' : '🔊'}
+        {isMuted ? <VolumeX size={14} style={{ color: 'var(--bone-dim)' }} /> : <Volume2 size={14} style={{ color: 'var(--bone)' }} />}
       </button>
       <button
         type="button"
@@ -673,7 +674,12 @@ export function DraftRoomPage({ league, justConnected }: DraftRoomPageProps) {
                     ? hasHeartbeat
                       ? '● LIVE SYNC ACTIVE'
                       : '● LIVE ANALYSIS'
-                    : '⚡ MOCK DRAFT'}
+                    : (
+                        <>
+                          <Zap size={12} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                          MOCK DRAFT
+                        </>
+                      )}
                 </span>
 
                 <span className={styles.statusItem}>

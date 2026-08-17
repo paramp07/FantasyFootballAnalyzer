@@ -14,7 +14,7 @@ import {
   resolveKeeperRounds,
 } from '@/utils/keeperGuess';
 import { loadDraftArchive, removeFromDraftArchive } from '@/utils/draftRoomCache';
-import { Download, FileUp, Save, X } from 'lucide-react';
+import { Download, FileUp, Save, X, Zap } from 'lucide-react';
 import {
   deletePreset,
   exportAllPresetsJSON,
@@ -520,7 +520,8 @@ export function DraftSetup({ room, league }: DraftSetupProps) {
                     title="Mock / Manual Draft: Pick players manually or run AI mock simulations."
                     style={{ flex: 1, padding: '0.6rem 0.5rem' }}
                   >
-                    ⚡ Mock / Manual Draft
+                    <Zap size={14} style={{ marginRight: '0.4rem', verticalAlign: 'middle' }} />
+                    Mock / Manual Draft
                   </button>
                 </div>
                 <span className={styles.hint} style={{ marginTop: '0.4rem', display: 'block' }}>

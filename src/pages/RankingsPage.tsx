@@ -1,5 +1,5 @@
 import { Fragment, useDeferredValue, useMemo, useState, useEffect } from 'react';
-import { Pencil, Check, Trash2, Download, X, Save } from 'lucide-react';
+import { Pencil, Check, Trash2, Download, X, Save, Lightbulb } from 'lucide-react';
 import { POOL, applyActivePreset } from '@/data/draftPool';
 import { NflTeamLabel, PosBadge, CustomRankingsModal } from '@/components';
 import {
@@ -942,7 +942,8 @@ export function RankingsPage({ league, onUpdateGuest, initialPos }: RankingsPage
               style={{ marginLeft: '1rem', color: 'var(--lime)', border: '1px dashed var(--lime)', padding: '0.2rem 0.5rem' }}
               title="Sort by FFA RK and clear query/filters to enable manual drag and drop reordering"
             >
-              💡 Sort by FFA RK to drag &amp; reorder
+              <Lightbulb size={13} style={{ marginRight: '0.3rem', verticalAlign: 'middle' }} />
+              Sort by FFA RK to drag &amp; reorder
             </span>
           )}
           <span className={styles.settingsSpacer} />

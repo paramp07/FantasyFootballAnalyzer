@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Zap } from 'lucide-react';
 import type { UseDraftRoomReturn } from '@/hooks/useDraftRoom';
 import { allKeepers, reservedKeepersFor, STARTER_POSITIONS } from '@/utils/draftEngine';
 import { findStacks } from '@/utils/stacks';
@@ -96,7 +97,7 @@ export function TeamBoard({ room }: TeamBoardProps) {
                 <div className={styles.stackLine} title="QB + pass catcher from the same NFL team on this roster">
                   {stacks.map(s => (
                     <span key={s.nflTeam} className={styles.stackBadge}>
-                      ⚡ {s.nflTeam} stack
+                      <Zap size={11} style={{ marginRight: '0.2rem', verticalAlign: 'middle' }} /> {s.nflTeam} stack
                     </span>
                   ))}
                 </div>

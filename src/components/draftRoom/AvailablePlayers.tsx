@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import type { PoolPlayer } from '@/types/draft';
 import type { UseDraftRoomReturn } from '@/hooks/useDraftRoom';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -433,7 +434,7 @@ export function AvailablePlayers({
                       {p.posRank} · {p.team} · Bye {p.bye ?? '-'}
                       {p.bye !== null && crowdedByes.has(p.bye) && (
                         <span className={styles.byeWarn} title="You already have two or more skill starters on this bye">
-                          ⚠
+                          <AlertTriangle size={11} style={{ color: 'var(--amber, #f59e0b)', verticalAlign: 'middle' }} />
                         </span>
                       )}
                       {tierBreaks(p) && <span className={styles.tierBreak}>LAST IN TIER</span>}
@@ -502,7 +503,7 @@ export function AvailablePlayers({
                 Pos
               </th>
               <th>Team</th>
-              <th title="Week the player's team sits out. ⚠ marks byes where you already have two or more skill starters.">
+              <th title="Week the player's team sits out. Warning icon marks byes where you already have two or more skill starters.">
                 Bye
               </th>
               <th
@@ -732,7 +733,7 @@ export function AvailablePlayers({
                       className={styles.byeWarn}
                       title={`You already have two skill starters on the week ${p.bye} bye`}
                     >
-                      ⚠
+                      <AlertTriangle size={11} style={{ color: 'var(--amber, #f59e0b)', verticalAlign: 'middle' }} />
                     </span>
                   )}
                 </td>
