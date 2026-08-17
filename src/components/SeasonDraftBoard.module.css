@@ -210,12 +210,15 @@
 
 .dirArrow {
   position: absolute;
-  bottom: 0.15rem;
+  bottom: 0.18rem;
   right: 0.35rem;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
   color: var(--bone-dim);
-  opacity: 0.6;
+  opacity: 0.65;
 }
 
 /* Position Colors */

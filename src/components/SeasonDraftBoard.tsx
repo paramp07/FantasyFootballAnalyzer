@@ -28,25 +28,54 @@ function formatShortName(name: string, pos: string, team: string): string {
   return `${name[0]}. ${name.slice(space + 1)}`;
 }
 
-function getArrowSymbol(roundNum: number, colIdx: number, teamCount: number, roundsCount: number): string {
+type ArrowDir = 'right' | 'left' | 'down' | null;
+
+function ArrowIcon({ direction }: { direction: ArrowDir }) {
+  if (!direction) return null;
+  let rotation = 0;
+  if (direction === 'left') rotation = 180;
+  if (direction === 'down') rotation = 90;
+
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        transform: `rotate(${rotation}deg)`,
+        display: 'block',
+      }}
+    >
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <polyline points="13 5 20 12 13 19" />
+    </svg>
+  );
+}
+
+function getArrowDirection(roundNum: number, colIdx: number, teamCount: number, roundsCount: number): ArrowDir {
   const isOddRound = roundNum % 2 !== 0;
 
   if (isOddRound) {
     if (colIdx === teamCount - 1) {
-      return roundNum === roundsCount ? '' : '↓';
+      return roundNum === roundsCount ? null : 'down';
     }
     if (colIdx === 0 && roundNum > 1) {
-      return '↓';
+      return 'down';
     }
-    return '→';
+    return 'right';
   } else {
     if (colIdx === teamCount - 1) {
-      return '↓';
+      return 'down';
     }
     if (colIdx === 0) {
-      return roundNum === roundsCount ? '' : '↓';
+      return roundNum === roundsCount ? null : 'down';
     }
-    return '←';
+    return 'left';
   }
 }
 
@@ -170,7 +199,7 @@ export function SeasonDraftBoard({ teams, totalTeams, draftType = 'snake' }: Sea
               const posClass = POS_CLASS[pos] || '';
 
               const showArrow = draftType === 'snake';
-              const arrowSymbol = getArrowSymbol(roundNum, colIdx, teamCount, roundsCount);
+              const arrowDir = getArrowDirection(roundNum, colIdx, teamCount, roundsCount);
 
               const pickLabel = `${roundNum}.${slotInRound < 10 ? '0' : ''}${slotInRound}`;
               const byeWeek = (pick?.player as any)?.byeWeek ?? (pick?.player as any)?.bye;
@@ -205,7 +234,11 @@ export function SeasonDraftBoard({ teams, totalTeams, draftType = 'snake' }: Sea
                     <div className={styles.playerName}>-</div>
                   )}
 
-                  {showArrow && <span className={styles.dirArrow}>{arrowSymbol}</span>}
+                  {showArrow && arrowDir && (
+                    <span className={styles.dirArrow}>
+                      <ArrowIcon direction={arrowDir} />
+                    </span>
+                  )}
                 </div>
               );
             });
