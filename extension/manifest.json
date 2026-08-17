@@ -21,6 +21,11 @@
       "matches": [ "https://fantasy.espn.com/football/*draft*", "https://fantasy.espn.com/football/*mock*" ],
       "run_at": "document_idle"
    }, {
+      "css": [ "injected_assistant.css" ],
+      "js": [ "ffa_data.js", "injected_assistant.js" ],
+      "matches": [ "https://fantasy.espn.com/football/*draft*", "https://fantasy.espn.com/football/*mock*" ],
+      "run_at": "document_idle"
+   }, {
 
       "js": [ "yahoo_inject.js" ],
       "matches": [ "https://football.fantasysports.yahoo.com/draftclient/*" ],
